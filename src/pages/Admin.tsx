@@ -207,9 +207,11 @@ export function Admin() {
       if (error) throw error;
       if (!data) throw new Error("No data");
 
+      const typedData = data as unknown as { total_points: number, profiles: { name: string } | null }[];
+
       let text = "🏆 Bolão da Copa 2026 - Classificação Parcial\n\n";
-      data.forEach((row, index: number) => {
-        text += `${index + 1}º ${(row.profiles as unknown as { name: string })?.name || 'Unknown'} - ${row.total_points} pts\n`;
+      typedData.forEach((row, index: number) => {
+        text += `${index + 1}º ${row.profiles?.name || 'Unknown'} - ${row.total_points} pts\n`;
       });
 
       await navigator.clipboard.writeText(text);
