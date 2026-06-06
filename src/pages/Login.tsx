@@ -22,7 +22,7 @@ export function Login() {
 
     if (error) {
       console.error('Login error:', error);
-      alert('Erro ao enviar o link de login. Tente novamente.');
+      alert(`Erro ao enviar o link de login: ${error.message}`);
     } else {
       setSuccess(true);
     }
