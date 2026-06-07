@@ -139,6 +139,8 @@ export interface Database {
           id: number
           player_id: string
           champion: string
+          vice_champion: string
+          third_place: string
           top_scorer: string
           best_player: string
         }
@@ -146,6 +148,8 @@ export interface Database {
           id?: number
           player_id: string
           champion: string
+          vice_champion: string
+          third_place: string
           top_scorer: string
           best_player: string
         }
@@ -153,6 +157,8 @@ export interface Database {
           id?: number
           player_id?: string
           champion?: string
+          vice_champion?: string
+          third_place?: string
           top_scorer?: string
           best_player?: string
         }

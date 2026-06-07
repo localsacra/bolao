@@ -38,26 +38,22 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
 };
 
 export function calculateGroupPositionPoints(
-  predicted: {
-    position_1: string;
-    position_2: string;
-    position_3: string;
-    position_4: string;
-  },
-  actual: {
-    position_1: string;
-    position_2: string;
-    position_3: string;
-    position_4: string;
-  }
+  predictedPosition: '1' | '2' | '3',
+  actualPosition: '1' | '2' | '3' | '4',
+  didQualify: boolean,
+  predictedQualify: boolean
 ): number {
-  let points = 0;
-  // 15 points for each correct position
-  if (predicted.position_1 === actual.position_1) points += 15;
-  if (predicted.position_2 === actual.position_2) points += 15;
-  if (predicted.position_3 === actual.position_3) points += 15;
-  if (predicted.position_4 === actual.position_4) points += 15;
-  return points;
+  // Exact position match = 15 pts
+  if (predictedPosition === actualPosition) return 15;
+  
+  // Predicted qualified and they did qualify
+  // but in different position = 10 pts
+  // (e.g. predicted 1st but finished 2nd)
+  // (e.g. predicted 3rd and advanced as one of 8 best)
+  if (predictedQualify && didQualify) return 10;
+  
+  // Did not qualify = 0 pts
+  return 0;
 }
 
 export function calculateThirdPlaceQualifierPoints(
@@ -74,4 +70,35 @@ export function calculateThirdPlaceQualifierPoints(
   });
   return points;
 }
+
+export function calculateSpecialPoints(
+  prediction: {
+    champion: string;
+    vice_champion: string;
+    third_place: string;
+    top_scorer: string;
+    best_player: string;
+  },
+  actual: {
+    champion: string;
+    vice_champion: string;
+    third_place: string;
+    top_scorer: string;
+    best_player: string;
+  }
+): number {
+  let points = 0;
+  if (prediction.champion === actual.champion) 
+    points += 25;
+  if (prediction.vice_champion === actual.vice_champion) 
+    points += 10;
+  if (prediction.third_place === actual.third_place) 
+    points += 10;
+  if (prediction.top_scorer === actual.top_scorer) 
+    points += 15;
+  if (prediction.best_player === actual.best_player) 
+    points += 15;
+  return points;
+}
+
 

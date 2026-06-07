@@ -13,24 +13,37 @@ export function Leaderboard() {
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [championPredictions, setChampionPredictions] = useState<Record<string, string>>({});
+  const [actualChampion, setActualChampion] = useState<string | null>(null);
 
   const fetchLeaderboard = async () => {
     try {
-      const { data, error } = await supabase
-        .from('player_scores')
-        .select(`
-          *,
-          profiles ( name )
-        `);
+      const [scoresRes, specialRes] = await Promise.all([
+        supabase.from('player_scores').select('*, profiles(name)'),
+        supabase.from('special_predictions').select('*')
+      ]);
       
-      if (error) {
-        console.error('Error fetching leaderboard:', error);
+      if (scoresRes.error) {
+        console.error('Error fetching leaderboard scores:', scoresRes.error);
         return;
       }
       
-      if (data) {
-        setScores(data as PlayerScore[]);
+      if (scoresRes.data) {
+        setScores(scoresRes.data as PlayerScore[]);
         setLastUpdated(formatMatchDate(new Date().toISOString()));
+      }
+
+      if (specialRes.data) {
+        const officialRow = specialRes.data.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
+        setActualChampion(officialRow?.champion || null);
+
+        const map: Record<string, string> = {};
+        specialRes.data.forEach(r => {
+          if (r.player_id !== '00000000-0000-0000-0000-000000000000') {
+            map[r.player_id] = r.champion;
+          }
+        });
+        setChampionPredictions(map);
       }
     } finally {
       setLoading(false);
@@ -60,8 +73,20 @@ export function Leaderboard() {
   const leaderboardWithRank = useMemo(() => {
     const sorted = [...scores].sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-      if (b.special_points !== a.special_points) return b.special_points - a.special_points;
+      
+      // Tiebreaker 1: Champion correct
+      const isChampionshipCorrectA = actualChampion && championPredictions[a.player_id] === actualChampion;
+      const isChampionshipCorrectB = actualChampion && championPredictions[b.player_id] === actualChampion;
+      if (isChampionshipCorrectA !== isChampionshipCorrectB) {
+        return isChampionshipCorrectA ? -1 : 1;
+      }
+
+      // Tiebreaker 2: Most match points
       if (b.match_points !== a.match_points) return b.match_points - a.match_points;
+
+      // Tiebreaker 3: Most teams correctly advanced (group_points)
+      if (b.group_points !== a.group_points) return b.group_points - a.group_points;
+
       const nameA = a.profiles?.name || '';
       const nameB = b.profiles?.name || '';
       return nameA.localeCompare(nameB);
@@ -71,19 +96,25 @@ export function Leaderboard() {
     let currentRank = 1;
     for (let index = 0; index < sorted.length; index++) {
       const score = sorted[index];
+      const isChampCorrect = actualChampion && championPredictions[score.player_id] === actualChampion;
+      const isPrevChampCorrect = index > 0 && actualChampion && championPredictions[sorted[index - 1].player_id] === actualChampion;
+
       const isTieWithPrev = index > 0 &&
         score.total_points === sorted[index - 1].total_points &&
-        score.special_points === sorted[index - 1].special_points &&
-        score.match_points === sorted[index - 1].match_points;
+        isChampCorrect === isPrevChampCorrect &&
+        score.match_points === sorted[index - 1].match_points &&
+        score.group_points === sorted[index - 1].group_points;
       
       if (!isTieWithPrev) {
         currentRank = index + 1;
       }
       
+      const isNextChampCorrect = index < sorted.length - 1 && actualChampion && championPredictions[sorted[index + 1].player_id] === actualChampion;
       const isTieWithNext = index < sorted.length - 1 &&
         score.total_points === sorted[index + 1].total_points &&
-        score.special_points === sorted[index + 1].special_points &&
-        score.match_points === sorted[index + 1].match_points;
+        isChampCorrect === isNextChampCorrect &&
+        score.match_points === sorted[index + 1].match_points &&
+        score.group_points === sorted[index + 1].group_points;
 
       result.push({
         ...score,
@@ -92,7 +123,7 @@ export function Leaderboard() {
       });
     }
     return result;
-  }, [scores]);
+  }, [scores, championPredictions, actualChampion]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -187,14 +218,18 @@ export function Leaderboard() {
       {/* Prize Reminder Footer */}
       <div className="mt-8 bg-slate-800/80 border border-slate-700 rounded-xl p-5 text-sm text-center shadow-lg">
         <h3 className="font-bold text-slate-200 mb-3 uppercase tracking-wide text-xs">Premiação Final</h3>
-        <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8">
+        <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 flex-wrap">
           <div className="flex items-center justify-center gap-2">
-            <span className="text-xl">🏆</span>
-            <span className="text-yellow-400 font-semibold">1º lugar: <span className="text-white">70%</span> do valor</span>
+            <span className="text-xl">🥇</span>
+            <span className="text-yellow-500 font-semibold">1º lugar: <span className="text-white">70%</span> do valor arrecadado</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="text-xl">🥈</span>
-            <span className="text-slate-300 font-semibold">2º lugar: <span className="text-white">30%</span> do valor</span>
+            <span className="text-slate-300 font-semibold">2º lugar: <span className="text-white">20%</span> do valor arrecadado</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xl">🥉</span>
+            <span className="text-amber-600 font-semibold">3º lugar: <span className="text-white">10%</span> do valor arrecadado</span>
           </div>
         </div>
       </div>

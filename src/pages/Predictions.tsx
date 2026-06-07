@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
 import { FlagIcon } from '../components/FlagIcon';
@@ -42,7 +42,7 @@ export function Predictions() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [localPredictions, setLocalPredictions] = useState<Record<number, Partial<Prediction>>>({});
   const [specialPreds, setSpecialPreds] = useState<Partial<SpecialPredictionRow>>({
-    champion: '', top_scorer: '', best_player: ''
+    champion: '', vice_champion: '', third_place: '', top_scorer: '', best_player: ''
   });
   
   const [activeTab, setActiveTab] = useState("Todos");
@@ -196,6 +196,8 @@ export function Predictions() {
       const payload = {
         player_id: user.id,
         champion: specialPreds.champion || '',
+        vice_champion: specialPreds.vice_champion || '',
+        third_place: specialPreds.third_place || '',
         top_scorer: specialPreds.top_scorer || '',
         best_player: specialPreds.best_player || ''
       };
@@ -288,6 +290,36 @@ export function Predictions() {
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="Ex: Brasil"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
+                  <Medal className="w-4 h-4 text-slate-300" /> Vice-campeão
+                </label>
+                <input 
+                  type="text" 
+                  value={specialPreds.vice_champion || ''}
+                  onChange={e => {
+                    setSpecialPreds(p => ({ ...p, vice_champion: e.target.value }));
+                    setSpecialSaveStatus('idle');
+                  }}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  placeholder="Ex: Argentina"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
+                  <Award className="w-4 h-4 text-amber-600" /> 3º Colocado
+                </label>
+                <input 
+                  type="text" 
+                  value={specialPreds.third_place || ''}
+                  onChange={e => {
+                    setSpecialPreds(p => ({ ...p, third_place: e.target.value }));
+                    setSpecialSaveStatus('idle');
+                  }}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  placeholder="Ex: França"
                 />
               </div>
               <div>
