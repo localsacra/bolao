@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { CheckCircle, AlertCircle, Trophy, Medal, Star, Lock } from 'lucide-react';
+import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
 
@@ -71,14 +71,18 @@ export function Predictions() {
       
       if (predsRes.data) {
         const predsMap: Record<number, Partial<Prediction>> = {};
+        const statusMap: Record<number, 'saved'> = {};
         predsRes.data.forEach(p => {
           predsMap[p.match_id] = p;
+          statusMap[p.match_id] = 'saved';
         });
         setLocalPredictions(predsMap);
+        setSaveStatus(statusMap);
       }
 
       if (specialRes.data) {
         setSpecialPreds(specialRes.data);
+        setSpecialSaveStatus('saved');
       }
 
       setLoading(false);
@@ -100,6 +104,11 @@ export function Predictions() {
         [`predicted_score_${team}`]: numValue
       }
     }));
+    setSaveStatus(prev => {
+      const next = { ...prev };
+      delete next[matchId];
+      return next;
+    });
   };
 
   const handleTieChange = (matchId: number, field: 'team' | 'method', value: string) => {
@@ -110,11 +119,14 @@ export function Predictions() {
         [`advance_${field}`]: value
       }
     }));
+    setSaveStatus(prev => {
+      const next = { ...prev };
+      delete next[matchId];
+      return next;
+    });
   };
 
   const savePrediction = async (matchId: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
     if (new Date() > new Date(match.deadline)) return;
@@ -124,22 +136,39 @@ export function Predictions() {
 
     setSaveStatus(prev => ({ ...prev, [matchId]: 'saving' }));
 
-    const payload = {
-      player_id: user.id,
-      match_id: matchId,
-      predicted_score_a: pred.predicted_score_a,
-      predicted_score_b: pred.predicted_score_b,
-      advance_team: pred.advance_team || null,
-      advance_method: pred.advance_method || null,
-    };
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      console.log('Auth user:', user);
+      console.log('Auth error:', authError);
+      
+      if (!user) {
+        console.error('No authenticated user found');
+        setSaveStatus(prev => ({ ...prev, [matchId]: 'error' }));
+        return;
+      }
 
-    console.log('Saving prediction:', payload);
+      const payload = {
+        player_id: user.id,
+        match_id: matchId,
+        predicted_score_a: pred.predicted_score_a,
+        predicted_score_b: pred.predicted_score_b,
+        advance_team: pred.advance_team || null,
+        advance_method: pred.advance_method || null,
+      };
 
-    const { error } = await supabase.from('predictions').upsert(payload, { onConflict: 'player_id,match_id' });
+      console.log('Attempting upsert with payload:', payload);
 
-    if (error) {
-      setSaveStatus(prev => ({ ...prev, [matchId]: 'error' }));
-    } else {
+      const { data, error } = await supabase
+        .from('predictions')
+        .upsert(payload, { onConflict: 'player_id,match_id' })
+        .select();
+
+      console.log('Upsert result - data:', data);
+      console.log('Upsert result - error:', error);
+
+      if (error) throw error;
+
       setSaveStatus(prev => ({ ...prev, [matchId]: 'saved' }));
       setTimeout(() => {
         setSaveStatus(prev => {
@@ -148,40 +177,59 @@ export function Predictions() {
           return newStatus;
         });
       }, 3000);
+    } catch (err) {
+      console.error('Full error object:', JSON.stringify(err));
+      setSaveStatus(prev => ({ ...prev, [matchId]: 'error' }));
     }
   };
 
   const saveSpecial = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     setSpecialSaveStatus('saving');
     
-    const payload = {
-      player_id: user.id,
-      champion: specialPreds.champion || '',
-      top_scorer: specialPreds.top_scorer || '',
-      best_player: specialPreds.best_player || ''
-    };
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      console.log('Auth user:', user);
+      console.log('Auth error:', authError);
+      
+      if (!user) {
+        console.error('No authenticated user found');
+        setSpecialSaveStatus('error');
+        return;
+      }
 
-    console.log('Saving prediction:', payload);
+      const payload = {
+        player_id: user.id,
+        champion: specialPreds.champion || '',
+        top_scorer: specialPreds.top_scorer || '',
+        best_player: specialPreds.best_player || ''
+      };
 
-    const { error } = await supabase.from('special_predictions').upsert(payload, { onConflict: 'player_id' });
+      console.log('Attempting upsert with payload:', payload);
 
-    if (!error) {
+      const { data, error } = await supabase
+        .from('special_predictions')
+        .upsert(payload, { onConflict: 'player_id' })
+        .select();
+
+      console.log('Upsert result - data:', data);
+      console.log('Upsert result - error:', error);
+
+      if (error) throw error;
+
       // Refresh to get the latest state including any DB default values
-      const { data } = await supabase
+      const { data: refreshedData } = await supabase
         .from('special_predictions')
         .select('*')
         .eq('player_id', user.id)
         .maybeSingle();
-      if (data) setSpecialPreds(data);
-    }
+      if (refreshedData) setSpecialPreds(refreshedData);
 
-    if (error) {
-      setSpecialSaveStatus('error');
-    } else {
       setSpecialSaveStatus('saved');
       setTimeout(() => setSpecialSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Full error object:', JSON.stringify(err));
+      setSpecialSaveStatus('error');
     }
   };
 
@@ -239,7 +287,10 @@ export function Predictions() {
                 <input 
                   type="text" 
                   value={specialPreds.champion || ''}
-                  onChange={e => setSpecialPreds(p => ({ ...p, champion: e.target.value }))}
+                  onChange={e => {
+                    setSpecialPreds(p => ({ ...p, champion: e.target.value }));
+                    setSpecialSaveStatus('idle');
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="Ex: Brasil"
                 />
@@ -251,7 +302,10 @@ export function Predictions() {
                 <input 
                   type="text" 
                   value={specialPreds.top_scorer || ''}
-                  onChange={e => setSpecialPreds(p => ({ ...p, top_scorer: e.target.value }))}
+                  onChange={e => {
+                    setSpecialPreds(p => ({ ...p, top_scorer: e.target.value }));
+                    setSpecialSaveStatus('idle');
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="Ex: Vini Jr"
                 />
@@ -263,19 +317,27 @@ export function Predictions() {
                 <input 
                   type="text" 
                   value={specialPreds.best_player || ''}
-                  onChange={e => setSpecialPreds(p => ({ ...p, best_player: e.target.value }))}
+                  onChange={e => {
+                    setSpecialPreds(p => ({ ...p, best_player: e.target.value }));
+                    setSpecialSaveStatus('idle');
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="Ex: Bellingham"
                 />
               </div>
               <button 
                 onClick={saveSpecial}
-                disabled={specialSaveStatus === 'saving'}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg transition-colors flex justify-center items-center gap-2 disabled:opacity-70"
+                disabled={specialSaveStatus === 'saving' || specialSaveStatus === 'saved'}
+                className={`w-full font-medium py-2 rounded-lg transition-colors flex justify-center items-center gap-2 disabled:opacity-70 ${
+                  specialSaveStatus === 'saved'
+                    ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/20'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
               >
-                {specialSaveStatus === 'saving' ? 'Salvando...' : 'Salvar Palpites Especiais'}
-                {specialSaveStatus === 'saved' && <CheckCircle className="w-4 h-4" />}
-                {specialSaveStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-300" />}
+                {specialSaveStatus === 'saving' && 'Salvando...'}
+                {specialSaveStatus === 'saved' && '✓ Salvo!'}
+                {specialSaveStatus === 'error' && 'Erro ao Salvar'}
+                {specialSaveStatus === 'idle' && 'Salvar Palpites Especiais'}
               </button>
             </div>
           </div>
@@ -421,9 +483,9 @@ export function Predictions() {
 
         {/* Save Status */}
         <div className="absolute top-4 right-4 flex items-center justify-end">
-          {saveStatus[match.id] === 'saving' && <span className="text-slate-400 text-xs animate-pulse">Salvando...</span>}
+          {saveStatus[match.id] === 'saving' && <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />}
           {saveStatus[match.id] === 'saved' && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-          {saveStatus[match.id] === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+          {saveStatus[match.id] === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
         </div>
 
         {/* Actual Score and Points */}
