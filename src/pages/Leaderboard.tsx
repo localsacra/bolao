@@ -219,17 +219,14 @@ export function Leaderboard() {
       <div className="mt-8 bg-slate-800/80 border border-slate-700 rounded-xl p-5 text-sm text-center shadow-lg">
         <h3 className="font-bold text-slate-200 mb-3 uppercase tracking-wide text-xs">Premiação Final</h3>
         <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 flex-wrap">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-xl">🥇</span>
-            <span className="text-yellow-500 font-semibold">1º lugar: <span className="text-white">70%</span> do valor arrecadado</span>
+          <div className="flex items-center justify-center gap-2 text-yellow-400 font-semibold">
+            🥇 1º lugar: 70% do valor arrecadado
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-xl">🥈</span>
-            <span className="text-slate-300 font-semibold">2º lugar: <span className="text-white">20%</span> do valor arrecadado</span>
+          <div className="flex items-center justify-center gap-2 text-slate-300 font-semibold">
+            🥈 2º lugar: 20% do valor arrecadado
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-xl">🥉</span>
-            <span className="text-amber-600 font-semibold">3º lugar: <span className="text-white">10%</span> do valor arrecadado</span>
+          <div className="flex items-center justify-center gap-2 text-amber-600 font-semibold">
+            🥉 3º lugar: 10% do valor arrecadado
           </div>
         </div>
       </div>

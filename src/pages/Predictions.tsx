@@ -294,7 +294,7 @@ export function Predictions() {
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Medal className="w-4 h-4 text-slate-300" /> Vice-campeão
+                  <Medal className="w-4 h-4 text-slate-300" /> 🥈 Vice-campeão
                 </label>
                 <input 
                   type="text" 
@@ -309,7 +309,7 @@ export function Predictions() {
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Award className="w-4 h-4 text-amber-600" /> 3º Colocado
+                  <Award className="w-4 h-4 text-amber-600" /> 🥉 3º Colocado
                 </label>
                 <input 
                   type="text" 

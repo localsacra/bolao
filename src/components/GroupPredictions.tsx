@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { CheckCircle, Lock, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { FlagIcon } from './FlagIcon';
-import { calculateGroupPositionPoints } from '../engine/scoring';
+import { calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from '../engine/scoring';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 
@@ -80,52 +80,6 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
     );
     return allThirdPlaces.filter(t => knockoutTeams.has(t));
   }, [actualStandings, matches]);
-
-  const getPointsForPosition = (gName: string, posType: '1' | '2' | '3') => {
-    const selection = selections[gName];
-    const actual = actualStandings[gName];
-    if (!selection || !actual) return 0;
-
-    let team = '';
-    if (posType === '1') team = selection.first || '';
-    else if (posType === '2') team = selection.second || '';
-    else if (posType === '3') {
-      const groupTeams = teamsByGroup[gName] || [];
-      team = thirdPlaceSelections.find(t => groupTeams.includes(t)) || '';
-    }
-
-    if (!team) return 0;
-
-    // Find where this team actually finished
-    let actualPosition: '1' | '2' | '3' | '4' | null = null;
-    if (actual.position_1 === team) actualPosition = '1';
-    else if (actual.position_2 === team) actualPosition = '2';
-    else if (actual.position_3 === team) actualPosition = '3';
-    else if (actual.position_4 === team) actualPosition = '4';
-
-    if (!actualPosition) return 0;
-
-    // Determine if it actually qualified
-    const didQualify = actualPosition === '1' || actualPosition === '2' || 
-      (actualPosition === '3' && actualThirdPlacesAdvanced.includes(team));
-
-    return calculateGroupPositionPoints(
-      posType,
-      actualPosition,
-      didQualify,
-      true
-    );
-  };
-
-  const getActualPositionStr = (gName: string, team: string) => {
-    const actual = actualStandings[gName];
-    if (!actual) return '';
-    if (actual.position_1 === team) return '1º';
-    if (actual.position_2 === team) return '2º';
-    if (actual.position_3 === team) return '3º';
-    if (actual.position_4 === team) return '4º';
-    return '';
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -419,7 +373,13 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
           
           let pointsEarned = 0;
           if (hasOfficialStandings) {
-            pointsEarned = getPointsForPosition(groupName, '1') + getPointsForPosition(groupName, '2');
+            groupTeams.forEach(team => {
+              const predPos = selection.first === team ? '1' : selection.second === team ? '2' : thirdPlaceSelections.includes(team) ? '3' : '';
+              const actPos = actual.position_1 === team ? '1' : actual.position_2 === team ? '2' : actual.position_3 === team ? '3' : '4';
+              const predQualify = predPos === '1' || predPos === '2' || predPos === '3';
+              const didQualify = actPos === '1' || actPos === '2' || (actPos === '3' && actualThirdPlacesAdvanced.includes(team));
+              pointsEarned += calculateGroupPositionPoints(predPos, actPos, predQualify, didQualify);
+            });
           }
 
           return (
@@ -471,22 +431,18 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                         {hasOfficialStandings && (
                           <>
                             {selection.first === team && (
-                              (() => {
-                                const pts = getPointsForPosition(groupName, '1');
-                                const actualPos = getActualPositionStr(groupName, team);
-                                if (pts === 15) return <span className="text-emerald-400 text-xs font-semibold">✓ Correto (+15 pts)</span>;
-                                if (pts === 10) return <span className="text-emerald-400/90 text-xs font-semibold">✓ Classificou (+10 pts) (Real: {actualPos})</span>;
-                                return <span className="text-red-400 text-xs font-semibold">✗ Errado (Real: {actualPos})</span>;
-                              })()
+                              actual.position_1 === team ? (
+                                <span className="text-emerald-400 text-xs font-semibold">✓ Correto</span>
+                              ) : (
+                                <span className="text-red-400 text-xs font-semibold">✗ (Real: 1º {actual.position_1})</span>
+                              )
                             )}
                             {selection.second === team && (
-                              (() => {
-                                const pts = getPointsForPosition(groupName, '2');
-                                const actualPos = getActualPositionStr(groupName, team);
-                                if (pts === 15) return <span className="text-emerald-400 text-xs font-semibold">✓ Correto (+15 pts)</span>;
-                                if (pts === 10) return <span className="text-emerald-400/90 text-xs font-semibold">✓ Classificou (+10 pts) (Real: {actualPos})</span>;
-                                return <span className="text-red-400 text-xs font-semibold">✗ Errado (Real: {actualPos})</span>;
-                              })()
+                              actual.position_2 === team ? (
+                                <span className="text-emerald-400 text-xs font-semibold">✓ Correto</span>
+                              ) : (
+                                <span className="text-red-400 text-xs font-semibold">✗ (Real: 2º {actual.position_2})</span>
+                              )
                             )}
                           </>
                         )}
@@ -537,7 +493,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
               </h2>
               {actualThirdPlacesAdvanced.length > 0 && (
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
-                  +{groups.reduce((sum, g) => sum + getPointsForPosition(g, '3'), 0)} pts
+                  +{calculateThirdPlaceQualifierPoints(thirdPlaceSelections, actualThirdPlacesAdvanced)} pts
                 </span>
               )}
             </div>
@@ -580,6 +536,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                       const isSelected = thirdPlaceSelections.includes(team);
                       const is1or2 = selections[gName]?.first === team || selections[gName]?.second === team;
                       
+                      const isCorrect = actualThirdPlacesAdvanced.includes(team);
                       const showResultStatus = actualThirdPlacesAdvanced.length > 0;
 
                       return (
@@ -605,13 +562,11 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                           
                           <div className="flex items-center gap-1">
                             {showResultStatus && isSelected && (
-                              (() => {
-                                const pts = getPointsForPosition(gName, '3');
-                                const actualPos = getActualPositionStr(gName, team);
-                                if (pts === 15) return <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 pts</span>;
-                                if (pts === 10) return <span className="text-emerald-400/90 text-[10px] font-bold mr-1">✓ +10 pts (Real: {actualPos})</span>;
-                                return <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 pts (Real: {actualPos})</span>;
-                              })()
+                              isCorrect ? (
+                                <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 pts</span>
+                              ) : (
+                                <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 pts</span>
+                              )
                             )}
                             {isSelected && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white flex items-center justify-center">
