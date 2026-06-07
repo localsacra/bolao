@@ -7,7 +7,7 @@ export function Layout() {
   const { user, profile, isLoading } = useAuthStore();
   const location = useLocation();
 
-  const isProtectedRoute = ['/predictions', '/leaderboard'].includes(location.pathname);
+  const isProtectedRoute = ['/predictions', '/leaderboard', '/profile'].includes(location.pathname);
 
   if (isLoading) {
     return (
@@ -56,16 +56,16 @@ export function Layout() {
           </NavLink>
 
           <NavLink
-            to="/login"
+            to={user ? "/profile" : "/login"}
             className={({ isActive }) =>
               `flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                isActive && !user ? 'text-green-500' : 'text-slate-400 hover:text-slate-300'
+                isActive ? 'text-green-500' : 'text-slate-400 hover:text-slate-300'
               }`
             }
           >
             <User size={24} />
             <span className="text-xs font-medium">
-              {profile ? profile.name.split(' ')[0] : 'Entrar'}
+              {profile?.name ? profile.name.split(' ')[0] : (user ? 'Perfil' : 'Entrar')}
             </span>
           </NavLink>
         </div>
