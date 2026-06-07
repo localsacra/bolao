@@ -7,6 +7,7 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (user) {
     return <Navigate to="/predictions" replace />;
@@ -14,15 +15,20 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email || !email.includes('@')) {
+      setError('Por favor insira um email válido');
+      return;
+    }
 
+    setError(null);
     setIsSubmitting(true);
-    const { error } = await login(email.trim());
+    console.log('Attempting login with email:', email);
+    const { error: loginErr } = await login(email.trim());
     setIsSubmitting(false);
 
-    if (error) {
-      console.error('Login error:', error);
-      alert(`Erro ao enviar o link de login: ${error.message}`);
+    if (loginErr) {
+      console.error('Login error:', loginErr);
+      setError(`Erro ao enviar o link de login: ${loginErr.message}`);
     } else {
       setSuccess(true);
     }
@@ -42,6 +48,11 @@ export function Login() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-sm text-left">
+                {error}
+              </div>
+            )}
             <input
               type="email"
               value={email}
