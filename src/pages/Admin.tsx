@@ -4,7 +4,7 @@ import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
 import { formatMatchDate } from '../utils/dateFormat';
-import { getFlagEmoji } from '../utils/flagEmoji';
+import { FlagIcon } from '../components/FlagIcon';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -266,7 +266,10 @@ export function Admin() {
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
         <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date)}</div>
         <div className="flex items-center justify-between">
-          <div className="flex-1 font-medium">{match.team_a} {getFlagEmoji(match.team_a)}</div>
+          <div className="flex-1 font-medium flex items-center justify-start gap-2">
+            <span>{match.team_a}</span>
+            <FlagIcon country={match.team_a} size="lg" />
+          </div>
           
           <div className="flex items-center gap-3 shrink-0 mx-4">
             {(!hasResult || isEditing) ? (
@@ -294,7 +297,10 @@ export function Admin() {
             )}
           </div>
 
-          <div className="flex-1 font-medium text-right">{getFlagEmoji(match.team_b)} {match.team_b}</div>
+          <div className="flex-1 font-medium flex items-center justify-end gap-2">
+            <FlagIcon country={match.team_b} size="lg" />
+            <span>{match.team_b}</span>
+          </div>
         </div>
 
         <div className="mt-4 flex justify-end">
@@ -348,8 +354,10 @@ export function Admin() {
             <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex justify-between items-center">
               <div>
                 <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase)}</div>
-                <div className="text-sm font-bold text-slate-200">
-                  {getFlagEmoji(m.team_a)} {m.team_a} vs {m.team_b} {getFlagEmoji(m.team_b)}
+                <div className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <FlagIcon country={m.team_a} size="lg" />
+                  <span>{m.team_a} vs {m.team_b}</span>
+                  <FlagIcon country={m.team_b} size="lg" />
                 </div>
               </div>
               <div className="text-right text-xs text-slate-400">

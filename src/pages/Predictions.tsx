@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
-import { getFlagEmoji } from '../utils/flagEmoji';
+import { FlagIcon } from '../components/FlagIcon';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
@@ -404,9 +404,7 @@ export function Predictions() {
         <div className="flex items-center justify-between gap-2 mb-2">
           {/* Team A */}
           <div className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-4xl">
-              {getFlagEmoji(match.team_a)}
-            </span>
+            <FlagIcon country={match.team_a} size="lg" />
             <span className="font-semibold text-sm text-center leading-tight">{match.team_a}</span>
           </div>
 
@@ -437,9 +435,7 @@ export function Predictions() {
 
           {/* Team B */}
           <div className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-4xl">
-              {getFlagEmoji(match.team_b)}
-            </span>
+            <FlagIcon country={match.team_b} size="lg" />
             <span className="font-semibold text-sm text-center leading-tight">{match.team_b}</span>
           </div>
         </div>
