@@ -5,6 +5,7 @@ import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle } from 'lucide
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
 import { FlagIcon } from '../components/FlagIcon';
+import { GroupPredictions } from '../components/GroupPredictions';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
@@ -12,7 +13,8 @@ type SpecialPredictionRow = Database['public']['Tables']['special_predictions'][
 
 import { calculatePoints } from '../engine/scoring';
 
-const GROUPS = ["Todos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+const TABS = ["Todos", "Grupos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+
 
 const PHASE_ORDER: Record<string, number> = {
   'group': 1,
@@ -248,7 +250,7 @@ export function Predictions() {
       {/* Tabs */}
       <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-800 p-4">
         <div className="flex overflow-x-auto gap-2 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {GROUPS.map(g => (
+          {TABS.map(g => (
             <button
               key={g}
               onClick={() => setActiveTab(g)}
@@ -258,7 +260,7 @@ export function Predictions() {
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {g === 'Todos' ? g : `Grupo ${g}`}
+              {g === 'Todos' || g === 'Grupos' ? g : `Grupo ${g}`}
             </button>
           ))}
         </div>
@@ -336,8 +338,18 @@ export function Predictions() {
           </div>
         )}
 
+        {/* Full Group Predictions tab view */}
+        {activeTab === 'Grupos' && (
+          <GroupPredictions matches={matches} />
+        )}
+
+        {/* Group Prediction card at the TOP of group matches */}
+        {activeTab !== 'Todos' && activeTab !== 'Grupos' && (
+          <GroupPredictions matches={matches} groupName={activeTab} />
+        )}
+
         {/* Matches List */}
-        {Object.entries(groupedMatches)
+        {activeTab !== 'Grupos' && Object.entries(groupedMatches)
           .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99))
           .map(([phase, phaseMatches]) => (
           <div key={phase} className="space-y-4">
@@ -370,7 +382,7 @@ export function Predictions() {
           </div>
         ))}
 
-        {filteredMatches.length === 0 && (
+        {activeTab !== 'Grupos' && filteredMatches.length === 0 && (
           <div className="text-center text-slate-500 py-10">
             Nenhuma partida encontrada para este filtro.
           </div>

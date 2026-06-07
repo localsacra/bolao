@@ -36,3 +36,42 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
 
   return points;
 };
+
+export function calculateGroupPositionPoints(
+  predicted: {
+    position_1: string;
+    position_2: string;
+    position_3: string;
+    position_4: string;
+  },
+  actual: {
+    position_1: string;
+    position_2: string;
+    position_3: string;
+    position_4: string;
+  }
+): number {
+  let points = 0;
+  // 15 points for each correct position
+  if (predicted.position_1 === actual.position_1) points += 15;
+  if (predicted.position_2 === actual.position_2) points += 15;
+  if (predicted.position_3 === actual.position_3) points += 15;
+  if (predicted.position_4 === actual.position_4) points += 15;
+  return points;
+}
+
+export function calculateThirdPlaceQualifierPoints(
+  // Player's predicted list of 8 third-placed teams
+  // that advance to Round of 32
+  predicted: string[],
+  // Actual 8 third-placed teams that advanced
+  actual: string[]
+): number {
+  let points = 0;
+  // 15 points for each correct third-placed team predicted
+  predicted.forEach(team => {
+    if (actual.includes(team)) points += 15;
+  });
+  return points;
+}
+

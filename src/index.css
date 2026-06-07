@@ -10,3 +10,14 @@
     @apply bg-slate-900 text-slate-100 antialiased;
   }
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.shake {
+  animation: shake 0.2s ease-in-out 0s 2;
+}
+
