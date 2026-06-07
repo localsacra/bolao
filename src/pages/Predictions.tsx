@@ -47,8 +47,9 @@ export function Predictions() {
   
   const [activeTab, setActiveTab] = useState("Todos");
   const [loading, setLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<Record<number, 'saving' | 'saved' | 'error'>>({});
+  const [saveStatus, setSaveStatus] = useState<Record<number, 'saving' | 'saved' | 'error' | undefined>>({});
   const [specialSaveStatus, setSpecialSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -66,13 +67,11 @@ export function Predictions() {
       
       if (predsRes.data) {
         const predsMap: Record<number, Partial<Prediction>> = {};
-        const statusMap: Record<number, 'saved'> = {};
         predsRes.data.forEach(p => {
           predsMap[p.match_id] = p;
-          statusMap[p.match_id] = 'saved';
         });
         setLocalPredictions(predsMap);
-        setSaveStatus(statusMap);
+        setPredictions(predsRes.data);
       }
 
       if (specialRes.data) {
@@ -85,6 +84,15 @@ export function Predictions() {
 
     fetchData();
   }, [user]);
+
+  useEffect(() => {
+    if (predictions.length === 0) return;
+    const initialStatus: Record<number, 'saved' | 'saving' | 'error'> = {};
+    predictions.forEach(p => {
+      initialStatus[p.match_id] = 'saved';
+    });
+    setSaveStatus(initialStatus);
+  }, [predictions]);
 
   const handleScoreChange = (matchId: number, team: 'a' | 'b', value: string) => {
     let numValue: number | undefined;
@@ -99,11 +107,10 @@ export function Predictions() {
         [`predicted_score_${team}`]: numValue
       }
     }));
-    setSaveStatus(prev => {
-      const next = { ...prev };
-      delete next[matchId];
-      return next;
-    });
+    setSaveStatus(prev => ({
+      ...prev,
+      [matchId]: undefined
+    }));
   };
 
   const handleTieChange = (matchId: number, field: 'team' | 'method', value: string) => {
@@ -114,11 +121,10 @@ export function Predictions() {
         [`advance_${field}`]: value
       }
     }));
-    setSaveStatus(prev => {
-      const next = { ...prev };
-      delete next[matchId];
-      return next;
-    });
+    setSaveStatus(prev => ({
+      ...prev,
+      [matchId]: undefined
+    }));
   };
 
   const savePrediction = async (matchId: number) => {
@@ -165,13 +171,6 @@ export function Predictions() {
       if (error) throw error;
 
       setSaveStatus(prev => ({ ...prev, [matchId]: 'saved' }));
-      setTimeout(() => {
-        setSaveStatus(prev => {
-          const newStatus = { ...prev };
-          delete newStatus[matchId];
-          return newStatus;
-        });
-      }, 3000);
     } catch (err) {
       console.error('Full error object:', JSON.stringify(err));
       setSaveStatus(prev => ({ ...prev, [matchId]: 'error' }));
