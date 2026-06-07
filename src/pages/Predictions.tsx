@@ -4,18 +4,11 @@ import { useAuthStore } from '../store/useAuthStore';
 import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
+import { getFlagEmoji } from '../utils/flagEmoji';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
-
-const FLAG_MAP: Record<string, string> = {
-  'Brasil': '🇧🇷', 'Argentina': '🇦🇷', 'França': '🇫🇷', 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Espanha': '🇪🇸', 'Alemanha': '🇩🇪', 'Portugal': '🇵🇹', 'Itália': '🇮🇹',
-  'Holanda': '🇳🇱', 'Bélgica': '🇧🇪', 'Croácia': '🇭🇷', 'Uruguai': '🇺🇾',
-  'Colômbia': '🇨🇴', 'Chile': '🇨🇱', 'Estados Unidos': '🇺🇸', 'México': '🇲🇽'
-};
-const getFlag = (team: string) => FLAG_MAP[team] || '🏳️';
 
 import { calculatePoints } from '../engine/scoring';
 
@@ -411,7 +404,9 @@ export function Predictions() {
         <div className="flex items-center justify-between gap-2 mb-2">
           {/* Team A */}
           <div className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-2xl">{getFlag(match.team_a)}</span>
+            <span className="text-4xl">
+              {getFlagEmoji(match.team_a)}
+            </span>
             <span className="font-semibold text-sm text-center leading-tight">{match.team_a}</span>
           </div>
 
@@ -442,7 +437,9 @@ export function Predictions() {
 
           {/* Team B */}
           <div className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-2xl">{getFlag(match.team_b)}</span>
+            <span className="text-4xl">
+              {getFlagEmoji(match.team_b)}
+            </span>
             <span className="font-semibold text-sm text-center leading-tight">{match.team_b}</span>
           </div>
         </div>

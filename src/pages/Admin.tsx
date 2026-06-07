@@ -4,17 +4,10 @@ import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
 import { formatMatchDate } from '../utils/dateFormat';
+import { getFlagEmoji } from '../utils/flagEmoji';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
-
-const FLAG_MAP: Record<string, string> = {
-  'Brasil': '🇧🇷', 'Argentina': '🇦🇷', 'França': '🇫🇷', 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Espanha': '🇪🇸', 'Alemanha': '🇩🇪', 'Portugal': '🇵🇹', 'Itália': '🇮🇹',
-  'Holanda': '🇳🇱', 'Bélgica': '🇧🇪', 'Croácia': '🇭🇷', 'Uruguai': '🇺🇾',
-  'Colômbia': '🇨🇴', 'Chile': '🇨🇱', 'Estados Unidos': '🇺🇸', 'México': '🇲🇽'
-};
-const getFlag = (team: string) => FLAG_MAP[team] || '🏳️';
 
 const PHASE_ORDER: Record<string, number> = {
   'group': 1,
@@ -273,7 +266,7 @@ export function Admin() {
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
         <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date)}</div>
         <div className="flex items-center justify-between">
-          <div className="flex-1 font-medium">{match.team_a} {getFlag(match.team_a)}</div>
+          <div className="flex-1 font-medium">{match.team_a} {getFlagEmoji(match.team_a)}</div>
           
           <div className="flex items-center gap-3 shrink-0 mx-4">
             {(!hasResult || isEditing) ? (
@@ -301,7 +294,7 @@ export function Admin() {
             )}
           </div>
 
-          <div className="flex-1 font-medium text-right">{getFlag(match.team_b)} {match.team_b}</div>
+          <div className="flex-1 font-medium text-right">{getFlagEmoji(match.team_b)} {match.team_b}</div>
         </div>
 
         <div className="mt-4 flex justify-end">
@@ -356,7 +349,7 @@ export function Admin() {
               <div>
                 <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase)}</div>
                 <div className="text-sm font-bold text-slate-200">
-                  {m.team_a} vs {m.team_b}
+                  {getFlagEmoji(m.team_a)} {m.team_a} vs {m.team_b} {getFlagEmoji(m.team_b)}
                 </div>
               </div>
               <div className="text-right text-xs text-slate-400">
