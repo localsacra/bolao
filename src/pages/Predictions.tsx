@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { CheckCircle, AlertCircle, Trophy, Medal, Star, Lock } from 'lucide-react';
 import type { Database } from '../lib/supabase';
+import { formatMatchDate } from '../utils/dateFormat';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
@@ -112,6 +113,7 @@ export function Predictions() {
   };
 
   const savePrediction = async (matchId: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
@@ -122,14 +124,18 @@ export function Predictions() {
 
     setSaveStatus(prev => ({ ...prev, [matchId]: 'saving' }));
 
-    const { error } = await supabase.from('predictions').upsert({
+    const payload = {
       player_id: user.id,
       match_id: matchId,
       predicted_score_a: pred.predicted_score_a,
       predicted_score_b: pred.predicted_score_b,
       advance_team: pred.advance_team || null,
       advance_method: pred.advance_method || null,
-    }, { onConflict: 'player_id,match_id' });
+    };
+
+    console.log('Saving prediction:', payload);
+
+    const { error } = await supabase.from('predictions').upsert(payload, { onConflict: 'player_id,match_id' });
 
     if (error) {
       setSaveStatus(prev => ({ ...prev, [matchId]: 'error' }));
@@ -146,35 +152,29 @@ export function Predictions() {
   };
 
   const saveSpecial = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setSpecialSaveStatus('saving');
     
-    let error;
-    if (specialPreds.id) {
-      const res = await supabase.from('special_predictions').update({
-        champion: specialPreds.champion,
-        top_scorer: specialPreds.top_scorer,
-        best_player: specialPreds.best_player
-      }).eq('id', specialPreds.id);
-      error = res.error;
-    } else {
-      const res = await supabase.from('special_predictions').insert({
-        player_id: user.id,
-        champion: specialPreds.champion || '',
-        top_scorer: specialPreds.top_scorer || '',
-        best_player: specialPreds.best_player || ''
-      });
-      error = res.error;
-      
-      // se foi inserido com sucesso, vamos buscar novamente para pegar o id e atualizar o state
-      if (!error) {
-        const { data } = await supabase
-          .from('special_predictions')
-          .select('*')
-          .eq('player_id', user.id)
-          .maybeSingle();
-        if (data) setSpecialPreds(data);
-      }
+    const payload = {
+      player_id: user.id,
+      champion: specialPreds.champion || '',
+      top_scorer: specialPreds.top_scorer || '',
+      best_player: specialPreds.best_player || ''
+    };
+
+    console.log('Saving prediction:', payload);
+
+    const { error } = await supabase.from('special_predictions').upsert(payload, { onConflict: 'player_id' });
+
+    if (!error) {
+      // Refresh to get the latest state including any DB default values
+      const { data } = await supabase
+        .from('special_predictions')
+        .select('*')
+        .eq('player_id', user.id)
+        .maybeSingle();
+      if (data) setSpecialPreds(data);
     }
 
     if (error) {
@@ -185,15 +185,6 @@ export function Predictions() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date).replace(/\.,/g, ',');
-  };
 
   if (loading) {
     return (
@@ -345,7 +336,7 @@ export function Predictions() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
-            {formatDate(match.match_date)}
+            {formatMatchDate(match.match_date)}
           </div>
           {isDeadlinePassed && (
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">

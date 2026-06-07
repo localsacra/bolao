@@ -26,7 +26,7 @@ export function ProfileSetupModal() {
     if (error) {
       console.error('Error creating profile:', error);
       setIsSubmitting(false);
-      alert('Erro ao salvar o perfil. Tente novamente.');
+      alert(`Erro ao salvar o perfil. Detalhes: ${error.message}`);
     } else {
       window.location.assign('/predictions');
     }

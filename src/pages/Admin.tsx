@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
+import { formatMatchDate } from '../utils/dateFormat';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -36,15 +37,6 @@ const formatPhaseName = (phase: string) => {
   return map[phase] || phase;
 };
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date).replace(/\.,/g, ',');
-};
 
 export function Admin() {
   const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores'>('resultados');
@@ -279,7 +271,7 @@ export function Admin() {
 
     return (
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-        <div className="text-xs text-slate-400 mb-2">{formatDate(match.match_date)}</div>
+        <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date)}</div>
         <div className="flex items-center justify-between">
           <div className="flex-1 font-medium">{match.team_a} {getFlag(match.team_a)}</div>
           
@@ -368,8 +360,8 @@ export function Admin() {
                 </div>
               </div>
               <div className="text-right text-xs text-slate-400">
-                Data: {formatDate(m.match_date)}<br/>
-                Deadline: {formatDate(m.deadline)}
+                Data: {formatMatchDate(m.match_date)}<br/>
+                Deadline: {formatMatchDate(m.deadline)}
               </div>
             </div>
           ))}

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
+import { formatMatchDate } from '../utils/dateFormat';
 
 type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
   profiles?: { name: string } | null;
@@ -29,10 +30,7 @@ export function Leaderboard() {
       
       if (data) {
         setScores(data as PlayerScore[]);
-        setLastUpdated(new Date().toLocaleString('pt-BR', { 
-          day: '2-digit', month: '2-digit', year: 'numeric', 
-          hour: '2-digit', minute: '2-digit', second: '2-digit'
-        }).replace(',', ' às'));
+        setLastUpdated(formatMatchDate(new Date().toISOString()));
       }
     } finally {
       setLoading(false);
