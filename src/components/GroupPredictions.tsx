@@ -5,6 +5,8 @@ import { CheckCircle, Lock, Loader2, AlertCircle, AlertTriangle } from 'lucide-r
 import type { Database } from '../lib/supabase';
 import { FlagIcon } from './FlagIcon';
 import { calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from '../engine/scoring';
+import { useLang } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 
@@ -22,6 +24,7 @@ interface GroupPredictionsProps {
 
 export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) {
   const { user } = useAuthStore();
+  const { lang } = useLang();
   const [selections, setSelections] = useState<Record<string, GroupSelection>>({});
   const [thirdPlaceSelections, setThirdPlaceSelections] = useState<string[]>([]);
   
@@ -243,7 +246,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
           setShowThirdWarning(false);
         } else {
           setShowThirdWarning(true);
-          showToast('Você já selecionou o limite máximo de 8 terceiros colocados!');
+          showToast(lang === 'pt' ? 'Você já selecionou o limite máximo de 8 terceiros colocados!' : 'You have already selected the maximum limit of 8 third-place qualifiers!');
           triggerShake('third_place');
         }
       }
@@ -291,7 +294,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
         ...prev,
         [groupName]: { ...prev[groupName], saving: false, saved: false }
       }));
-      showToast('Erro ao salvar palpites do grupo!');
+      showToast(lang === 'pt' ? 'Erro ao salvar palpites do grupo!' : 'Error saving group predictions!');
     }
   };
 
@@ -337,7 +340,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
     } catch (e) {
       console.error('Error saving third place qualifiers:', e);
       setThirdSaveStatus('error');
-      showToast('Erro ao salvar terceiros colocados!');
+      showToast(lang === 'pt' ? 'Erro ao salvar terceiros colocados!' : 'Error saving third place qualifiers!');
     }
   };
 
@@ -390,16 +393,16 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
               <div>
                 {/* Card Header */}
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-emerald-400">GRUPO {groupName}</h3>
+                  <h3 className="text-lg font-bold text-emerald-400">{lang === 'pt' ? 'GRUPO' : 'GROUP'} {groupName}</h3>
                   <div className="flex items-center gap-2">
                     {hasOfficialStandings && (
                       <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
-                        +{pointsEarned} pts
+                        +{pointsEarned} {t(lang, 'predictions.points')}
                       </span>
                     )}
                     {isLocked && (
                       <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-red-400 bg-red-400/10 px-2.5 py-1 rounded-md">
-                        <Lock className="w-3 h-3" /> Encerrado
+                        <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
                       </span>
                     )}
                   </div>
@@ -432,16 +435,16 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                           <>
                             {selection.first === team && (
                               actual.position_1 === team ? (
-                                <span className="text-emerald-400 text-xs font-semibold">✓ Correto</span>
+                                <span className="text-emerald-400 text-xs font-semibold">✓ {t(lang, 'predictions.correct')}</span>
                               ) : (
-                                <span className="text-red-400 text-xs font-semibold">✗ (Real: 1º {actual.position_1})</span>
+                                <span className="text-red-400 text-xs font-semibold">✗ ({t(lang, 'predictions.actual')}: 1º {actual.position_1})</span>
                               )
                             )}
                             {selection.second === team && (
                               actual.position_2 === team ? (
-                                <span className="text-emerald-400 text-xs font-semibold">✓ Correto</span>
+                                <span className="text-emerald-400 text-xs font-semibold">✓ {t(lang, 'predictions.correct')}</span>
                               ) : (
-                                <span className="text-red-400 text-xs font-semibold">✗ (Real: 2º {actual.position_2})</span>
+                                <span className="text-red-400 text-xs font-semibold">✗ ({t(lang, 'predictions.actual')}: 2º {actual.position_2})</span>
                               )
                             )}
                           </>
@@ -472,7 +475,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                 >
                   {selection.saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {selection.saved && <CheckCircle className="w-4 h-4 text-emerald-400" />}
-                  {selection.saved ? 'Salvo' : selection.saving ? 'Salvando...' : `Salvar Grupo ${groupName}`}
+                  {selection.saved ? t(lang, 'predictions.saved') : selection.saving ? t(lang, 'predictions.saving') : (lang === 'pt' ? `Salvar Grupo ${groupName}` : `Save Group ${groupName}`)}
                 </button>
               )}
             </div>
@@ -485,15 +488,14 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
         <div 
           className={`bg-slate-800/40 border border-slate-700 rounded-xl p-5 shadow-lg mt-8 ${shakingGroup === 'third_place' ? 'shake' : ''}`}
         >
-          {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-700 pb-4 mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
-                🏆 8 Terceiros Classificados
+                🏆 {t(lang, 'predictions.thirdQualifiers')}
               </h2>
               {actualThirdPlacesAdvanced.length > 0 && (
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
-                  +{calculateThirdPlaceQualifierPoints(thirdPlaceSelections, actualThirdPlacesAdvanced)} pts
+                  +{calculateThirdPlaceQualifierPoints(thirdPlaceSelections, actualThirdPlacesAdvanced)} {t(lang, 'predictions.points')}
                 </span>
               )}
             </div>
@@ -504,19 +506,21 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                   ? 'bg-emerald-500/20 text-emerald-400' 
                   : 'bg-slate-700 text-slate-300'
               }`}>
-                {thirdPlaceSelections.length} de 8 selecionados
+                {thirdPlaceSelections.length} {t(lang, 'predictions.of8Selected')}
               </span>
             </div>
           </div>
-
+ 
           <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-            Selecione quais 8 seleções que terminarem em 3º lugar nos seus respectivos grupos avançarão para a fase de mata-mata.
+            {t(lang, 'predictions.thirdQualifiersDescription')}
           </p>
 
           {showThirdWarning && (
             <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-xs text-yellow-500 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              <span>Você já atingiu o limite de 8 terceiros colocados. Desmarque algum antes de selecionar outro.</span>
+              <span>
+                {t(lang, 'predictions.limitWarning')}
+              </span>
             </div>
           )}
 
@@ -529,7 +533,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
               return (
                 <div key={gName} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4">
                   <h4 className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">
-                    Grupo {gName} {isLocked && '🔒'}
+                    {t(lang, 'predictions.group')} {gName} {isLocked && '🔒'}
                   </h4>
                   <div className="space-y-1.5">
                     {groupTeams.map(team => {
@@ -562,12 +566,12 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                           
                           <div className="flex items-center gap-1">
                             {showResultStatus && isSelected && (
-                              isCorrect ? (
-                                <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 pts</span>
-                              ) : (
-                                <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 pts</span>
-                              )
-                            )}
+                               isCorrect ? (
+                                 <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 {t(lang, 'predictions.points')}</span>
+                               ) : (
+                                 <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 {t(lang, 'predictions.points')}</span>
+                               )
+                             )}
                             {isSelected && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white flex items-center justify-center">
                                 ✓
@@ -597,10 +601,10 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
               {thirdSaveStatus === 'saving' && <Loader2 className="w-4 h-4 animate-spin" />}
               {thirdSaveStatus === 'saved' && <CheckCircle className="w-4 h-4 text-emerald-400" />}
               {thirdSaveStatus === 'saved' 
-                ? 'Terceiros Salvos' 
+                ? (lang === 'pt' ? 'Terceiros Salvos' : 'Third Places Saved')
                 : thirdSaveStatus === 'saving' 
-                ? 'Salvando...' 
-                : 'Salvar Terceiros Classificados'}
+                ? t(lang, 'predictions.saving')
+                : (lang === 'pt' ? 'Salvar Terceiros Classificados' : 'Save Third Place Qualifiers')}
             </button>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { useAuthStore } from './store/useAuthStore';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 function App() {
   const { initialize } = useAuthStore();
@@ -16,18 +17,20 @@ function App() {
   }, [initialize]);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/predictions" replace />} />
-          <Route path="login" element={<Login />} />
-          <Route path="predictions" element={<Predictions />} />
-          <Route path="leaderboard" element={<Leaderboard />} />
-          <Route path="admin" element={<Admin />} />
-          <Route path="profile" element={<Profile />} />
-        </Route>
-      </Routes>
-    </Router>
+    <LanguageProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/predictions" replace />} />
+            <Route path="login" element={<Login />} />
+            <Route path="predictions" element={<Predictions />} />
+            <Route path="leaderboard" element={<Leaderboard />} />
+            <Route path="admin" element={<Admin />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
+        </Routes>
+      </Router>
+    </LanguageProvider>
   );
 }
 

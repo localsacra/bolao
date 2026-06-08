@@ -1,5 +1,8 @@
-export function formatMatchDate(utcDate: string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
+import type { Language } from '../i18n';
+
+export function formatMatchDate(utcDate: string, lang: Language = 'pt'): string {
+  const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

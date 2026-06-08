@@ -12,6 +12,8 @@ type Prediction = Database['public']['Tables']['predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 
 import { calculatePoints } from '../engine/scoring';
+import { useLang } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 const TABS = ["Todos", "Grupos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -25,13 +27,20 @@ const PHASE_ORDER: Record<string, number> = {
   'final': 6
 };
 
-const formatPhaseName = (phase: string) => {
-  const map: Record<string, string> = {
+const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
+  const map: Record<string, string> = lang === 'pt' ? {
     'group': 'Fase de Grupos',
     'round_16': 'Oitavas de Final',
     'quarter_finals': 'Quartas de Final',
     'semi_finals': 'Semifinal',
     'third_place': 'Disputa de 3º Lugar',
+    'final': 'Final'
+  } : {
+    'group': 'Group Stage',
+    'round_16': 'Round of 16',
+    'quarter_finals': 'Quarterfinals',
+    'semi_finals': 'Semifinals',
+    'third_place': '3rd Place Match',
     'final': 'Final'
   };
   return map[phase] || phase;
@@ -39,6 +48,7 @@ const formatPhaseName = (phase: string) => {
 
 export function Predictions() {
   const { user } = useAuthStore();
+  const { lang } = useLang();
   const [matches, setMatches] = useState<Match[]>([]);
   const [localPredictions, setLocalPredictions] = useState<Record<number, Partial<Prediction>>>({});
   const [specialPreds, setSpecialPreds] = useState<Partial<SpecialPredictionRow>>({
@@ -261,7 +271,7 @@ export function Predictions() {
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {g === 'Todos' || g === 'Grupos' ? g : `Grupo ${g}`}
+              {g === 'Todos' ? (lang === 'pt' ? 'Todos' : 'All') : g === 'Grupos' ? (lang === 'pt' ? 'Grupos' : 'Groups') : (lang === 'pt' ? `Grupo ${g}` : `Group ${g}`)}
             </button>
           ))}
         </div>
@@ -273,12 +283,12 @@ export function Predictions() {
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-lg">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />
-              Palpites Especiais
+              {t(lang, 'predictions.specialPredictions')}
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Trophy className="w-4 h-4" /> Campeão
+                  <Trophy className="w-4 h-4" /> {t(lang, 'predictions.champion')}
                 </label>
                 <input 
                   type="text" 
@@ -288,12 +298,12 @@ export function Predictions() {
                     setSpecialSaveStatus('idle');
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Ex: Brasil"
+                  placeholder={lang === 'pt' ? 'Ex: Brasil' : 'e.g. Brazil'}
                 />
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Medal className="w-4 h-4 text-slate-300" /> 🥈 Vice-campeão
+                  <Medal className="w-4 h-4 text-slate-300" /> 🥈 {t(lang, 'predictions.runnerUp')}
                 </label>
                 <input 
                   type="text" 
@@ -303,12 +313,12 @@ export function Predictions() {
                     setSpecialSaveStatus('idle');
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Ex: Argentina"
+                  placeholder={lang === 'pt' ? 'Ex: Argentina' : 'e.g. Argentina'}
                 />
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Award className="w-4 h-4 text-amber-600" /> 🥉 3º Colocado
+                  <Award className="w-4 h-4 text-amber-600" /> 🥉 {t(lang, 'predictions.thirdPlace')}
                 </label>
                 <input 
                   type="text" 
@@ -318,12 +328,12 @@ export function Predictions() {
                     setSpecialSaveStatus('idle');
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Ex: França"
+                  placeholder={lang === 'pt' ? 'Ex: França' : 'e.g. France'}
                 />
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Medal className="w-4 h-4" /> Artilheiro
+                  <Medal className="w-4 h-4" /> {t(lang, 'predictions.topScorer')}
                 </label>
                 <input 
                   type="text" 
@@ -333,12 +343,12 @@ export function Predictions() {
                     setSpecialSaveStatus('idle');
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Ex: Vini Jr"
+                  placeholder={lang === 'pt' ? 'Ex: Vini Jr' : 'e.g. Vini Jr'}
                 />
               </div>
               <div>
                 <label className="text-sm text-slate-400 flex items-center gap-2 mb-1">
-                  <Star className="w-4 h-4" /> Melhor Jogador
+                  <Star className="w-4 h-4" /> {t(lang, 'predictions.bestPlayer')}
                 </label>
                 <input 
                   type="text" 
@@ -348,7 +358,7 @@ export function Predictions() {
                     setSpecialSaveStatus('idle');
                   }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="Ex: Bellingham"
+                  placeholder={lang === 'pt' ? 'Ex: Bellingham' : 'e.g. Bellingham'}
                 />
               </div>
               <button 
@@ -360,10 +370,10 @@ export function Predictions() {
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                 }`}
               >
-                {specialSaveStatus === 'saving' && 'Salvando...'}
-                {specialSaveStatus === 'saved' && '✓ Salvo!'}
-                {specialSaveStatus === 'error' && 'Erro ao Salvar'}
-                {specialSaveStatus === 'idle' && 'Salvar Palpites Especiais'}
+                {specialSaveStatus === 'saving' && t(lang, 'predictions.saving')}
+                {specialSaveStatus === 'saved' && `✓ ${t(lang, 'predictions.saved')}!`}
+                {specialSaveStatus === 'error' && (lang === 'pt' ? 'Erro ao Salvar' : 'Error Saving')}
+                {specialSaveStatus === 'idle' && (lang === 'pt' ? 'Salvar Palpites Especiais' : 'Save Special Predictions')}
               </button>
             </div>
           </div>
@@ -385,7 +395,7 @@ export function Predictions() {
           .map(([phase, phaseMatches]) => (
           <div key={phase} className="space-y-4">
             <h2 className="text-xl font-bold text-emerald-400 capitalize pt-2 border-b border-slate-800 pb-2">
-              {formatPhaseName(phase)}
+              {formatPhaseName(phase, lang)}
             </h2>
             
             {phase === 'group' ? (
@@ -399,7 +409,7 @@ export function Predictions() {
               ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
                 <div key={groupName} className="space-y-3">
                   <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit mt-4">
-                    Grupo {groupName}
+                    {t(lang, 'predictions.group')} {groupName}
                   </h3>
                   {gMatches.map(m => renderMatchCard(m))}
                 </div>
@@ -415,7 +425,7 @@ export function Predictions() {
 
         {activeTab !== 'Grupos' && filteredMatches.length === 0 && (
           <div className="text-center text-slate-500 py-10">
-            Nenhuma partida encontrada para este filtro.
+            {lang === 'pt' ? 'Nenhuma partida encontrada para este filtro.' : 'No matches found for this filter.'}
           </div>
         )}
       </div>
@@ -434,11 +444,11 @@ export function Predictions() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
-            {formatMatchDate(match.match_date)}
+            {formatMatchDate(match.match_date, lang)}
           </div>
           {isDeadlinePassed && (
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
-              <Lock className="w-3 h-3" /> Encerrado
+              <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
             </div>
           )}
         </div>
@@ -487,7 +497,9 @@ export function Predictions() {
         {isKnockout && isDraw && (
           <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-1.5">Quem avança?</label>
+              <label className="block text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-1.5">
+                {lang === 'pt' ? 'Quem avança?' : 'Who advances?'}
+              </label>
               <select
                 value={pred.advance_team || ''}
                 onChange={e => handleTieChange(match.id, 'team', e.target.value)}
@@ -495,13 +507,15 @@ export function Predictions() {
                 disabled={isDeadlinePassed}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-70"
               >
-                <option value="">Selecione...</option>
+                <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
                 <option value={match.team_a}>{match.team_a}</option>
                 <option value={match.team_b}>{match.team_b}</option>
               </select>
             </div>
             <div>
-              <label className="block text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-1.5">Como?</label>
+              <label className="block text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-1.5">
+                {lang === 'pt' ? 'Como?' : 'How?'}
+              </label>
               <select
                 value={pred.advance_method || ''}
                 onChange={e => handleTieChange(match.id, 'method', e.target.value)}
@@ -509,9 +523,9 @@ export function Predictions() {
                 disabled={isDeadlinePassed}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-70"
               >
-                <option value="">Selecione...</option>
-                <option value="Prorrogação">Prorrogação</option>
-                <option value="Pênaltis">Pênaltis</option>
+                <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
+                <option value="Prorrogação">{lang === 'pt' ? 'Prorrogação' : 'Extra Time'}</option>
+                <option value="Pênaltis">{lang === 'pt' ? 'Pênaltis' : 'Penalties'}</option>
               </select>
             </div>
           </div>
@@ -528,10 +542,10 @@ export function Predictions() {
         {match.actual_score_a !== null && match.actual_score_b !== null && (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex justify-between items-center">
             <div className="text-sm text-slate-300">
-              Placar Real: <strong className="text-white ml-1">{match.actual_score_a} x {match.actual_score_b}</strong>
+              {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} {t(lang, 'common.vs')} {match.actual_score_b}</strong>
             </div>
             <div className="text-emerald-400 font-bold flex items-center gap-1">
-              +{calculatePoints(match, pred)} <span className="text-xs font-normal opacity-80">pts</span>
+              +{calculatePoints(match, pred)} <span className="text-xs font-normal opacity-80">{t(lang, 'predictions.points')}</span>
             </div>
           </div>
         )}

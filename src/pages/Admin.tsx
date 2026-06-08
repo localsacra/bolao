@@ -5,6 +5,8 @@ import { recalculateScores } from '../engine/recalculate';
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
 import { formatMatchDate } from '../utils/dateFormat';
 import { FlagIcon } from '../components/FlagIcon';
+import { useLang } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -18,13 +20,20 @@ const PHASE_ORDER: Record<string, number> = {
   'final': 6
 };
 
-const formatPhaseName = (phase: string) => {
-  const map: Record<string, string> = {
+const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
+  const map: Record<string, string> = lang === 'pt' ? {
     'group': 'Fase de Grupos',
     'round_of_32': 'Dezesseis-avos',
     'round_of_16': 'Oitavas de Final',
     'quarterfinal': 'Quartas de Final',
     'semifinal': 'Semifinal',
+    'final': 'Final'
+  } : {
+    'group': 'Group Stage',
+    'round_of_32': 'Round of 32',
+    'round_of_16': 'Round of 16',
+    'quarterfinal': 'Quarterfinals',
+    'semifinal': 'Semifinals',
     'final': 'Final'
   };
   return map[phase] || phase;
@@ -32,6 +41,7 @@ const formatPhaseName = (phase: string) => {
 
 
 export function Admin() {
+  const { lang } = useLang();
   const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores'>('resultados');
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -89,7 +99,7 @@ export function Admin() {
   const saveMatchResult = async (matchId: number) => {
     const scores = editingScores[matchId];
     if (!scores || scores.a === '' || scores.b === '') {
-      showToast('Preencha os dois placares', 'error');
+      showToast(lang === 'pt' ? 'Preencha os dois placares' : 'Fill in both scores', 'error');
       return;
     }
 
@@ -102,10 +112,10 @@ export function Admin() {
       .eq('id', matchId);
 
     if (error) {
-      showToast('Erro ao salvar resultado', 'error');
+      showToast(lang === 'pt' ? 'Erro ao salvar resultado' : 'Error saving result', 'error');
     } else {
       await recalculateScores(matchId);
-      showToast('Resultado salvo e pontos recalculados!', 'success');
+      showToast(lang === 'pt' ? 'Resultado salvo e pontos recalculados!' : 'Result saved and points recalculated!', 'success');
       
       // Remove edit state so it displays normally
       setEditingScores(prev => {
@@ -136,7 +146,7 @@ export function Admin() {
 
   const createNewMatch = async () => {
     if (!newMatch.team_a || !newMatch.team_b || !newMatch.match_date || !newMatch.deadline) {
-      showToast('Preencha todos os campos', 'error');
+      showToast(lang === 'pt' ? 'Preencha todos os campos' : 'Fill in all fields', 'error');
       return;
     }
 
@@ -151,9 +161,9 @@ export function Admin() {
     });
 
     if (error) {
-      showToast('Erro ao criar partida', 'error');
+      showToast(lang === 'pt' ? 'Erro ao criar partida' : 'Error creating match', 'error');
     } else {
-      showToast('Partida criada com sucesso!', 'success');
+      showToast(lang === 'pt' ? 'Partida criada com sucesso!' : 'Match created successfully!', 'success');
       setShowNewMatchModal(false);
       setNewMatch({ phase: 'round_of_16', team_a: '', team_b: '', match_date: '', deadline: '' });
       const { data } = await supabase.from('matches').select('*').order('match_date', { ascending: true });
@@ -170,9 +180,9 @@ export function Admin() {
       .eq('id', profileId);
     
     if (error) {
-      showToast('Erro ao alterar status de admin', 'error');
+      showToast(lang === 'pt' ? 'Erro ao alterar status de admin' : 'Error changing admin status', 'error');
     } else {
-      showToast('Status atualizado!', 'success');
+      showToast(lang === 'pt' ? 'Status atualizado!' : 'Status updated!', 'success');
       setProfiles(prev => prev.map(p => p.id === profileId ? { ...p, is_admin: !currentStatus } : p));
     }
     setTogglingAdmin(null);
@@ -194,15 +204,15 @@ export function Admin() {
 
       const typedData = data as unknown as { total_points: number, profiles: { name: string } | null }[];
 
-      let text = "🏆 Bolão da Copa 2026 - Classificação Parcial\n\n";
+      let text = lang === 'pt' ? "🏆 Bolão da Copa 2026 - Classificação Parcial\n\n" : "🏆 World Cup Pool 2026 - Partial Leaderboard\n\n";
       typedData.forEach((row, index: number) => {
-        text += `${index + 1}º ${row.profiles?.name || 'Unknown'} - ${row.total_points} pts\n`;
+        text += `${index + 1}º ${row.profiles?.name || (lang === 'pt' ? 'Desconhecido' : 'Unknown')} - ${row.total_points} ${t(lang, 'predictions.points')}\n`;
       });
 
       await navigator.clipboard.writeText(text);
-      showToast("Classificação copiada para a área de transferência!", "success");
+      showToast(lang === 'pt' ? "Classificação copiada para a área de transferência!" : "Leaderboard copied to clipboard!", "success");
     } catch (e) {
-      showToast("Erro ao exportar classificação.", "error");
+      showToast(lang === 'pt' ? "Erro ao exportar classificação." : "Error exporting leaderboard.", "error");
       console.error(e);
     } finally {
       setExporting(false);
@@ -231,7 +241,7 @@ export function Admin() {
           .map(([phase, phaseMatches]) => (
             <div key={phase} className="space-y-4">
               <h2 className="text-xl font-bold text-emerald-400 capitalize border-b border-slate-800 pb-2">
-                {formatPhaseName(phase)}
+                {formatPhaseName(phase, lang)}
               </h2>
               
               {phase === 'group' ? (
@@ -243,7 +253,7 @@ export function Admin() {
                   }, {} as Record<string, Match[]>)
                 ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
                   <div key={groupName} className="space-y-3">
-                    <h3 className="text-sm font-semibold text-slate-400">Grupo {groupName}</h3>
+                    <h3 className="text-sm font-semibold text-slate-400">{t(lang, 'predictions.group')} {groupName}</h3>
                     {gMatches.map(m => renderMatchAdminCard(m))}
                   </div>
                 ))
@@ -264,7 +274,7 @@ export function Admin() {
 
     return (
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-        <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date)}</div>
+        <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date, lang)}</div>
         <div className="flex items-center justify-between">
           <div className="flex-1 font-medium flex items-center justify-start gap-2">
             <span>{match.team_a}</span>
@@ -310,7 +320,7 @@ export function Admin() {
               disabled={savingResult === match.id}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
             >
-              {savingResult === match.id ? 'Salvando...' : 'Salvar Resultado'}
+              {savingResult === match.id ? t(lang, 'admin.saving') : t(lang, 'admin.save')}
               <Check className="w-4 h-4" />
             </button>
           ) : (
@@ -323,7 +333,7 @@ export function Admin() {
               }}
               className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
             >
-              Editar <Edit2 className="w-4 h-4" />
+              {lang === 'pt' ? 'Editar' : 'Edit'} <Edit2 className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -338,14 +348,14 @@ export function Admin() {
       <div className="space-y-6">
         <div className="flex justify-between items-center bg-slate-800/80 p-4 rounded-xl border border-slate-700">
           <div>
-            <h2 className="font-bold text-lg">Mata-Mata</h2>
-            <p className="text-sm text-slate-400">Gerencie partidas das fases eliminatórias.</p>
+            <h2 className="font-bold text-lg">{t(lang, 'admin.matches')}</h2>
+            <p className="text-sm text-slate-400">{lang === 'pt' ? 'Gerencie partidas das fases eliminatórias.' : 'Manage knockout phase matches.'}</p>
           </div>
           <button
             onClick={() => setShowNewMatchModal(true)}
             className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
           >
-            <Plus className="w-4 h-4" /> Nova Partida
+            <Plus className="w-4 h-4" /> {t(lang, 'admin.addMatch')}
           </button>
         </div>
 
@@ -353,7 +363,7 @@ export function Admin() {
           {knockoutMatches.map(m => (
             <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex justify-between items-center">
               <div>
-                <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase)}</div>
+                <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase, lang)}</div>
                 <div className="text-sm font-bold text-slate-200 flex items-center gap-2">
                   <FlagIcon country={m.team_a} size="lg" />
                   <span>{m.team_a} vs {m.team_b}</span>
@@ -361,13 +371,15 @@ export function Admin() {
                 </div>
               </div>
               <div className="text-right text-xs text-slate-400">
-                Data: {formatMatchDate(m.match_date)}<br/>
-                Deadline: {formatMatchDate(m.deadline)}
+                {lang === 'pt' ? 'Data' : 'Date'}: {formatMatchDate(m.match_date, lang)}<br/>
+                Deadline: {formatMatchDate(m.deadline, lang)}
               </div>
             </div>
           ))}
           {knockoutMatches.length === 0 && (
-            <div className="text-center text-slate-500 py-8">Nenhuma partida de mata-mata cadastrada.</div>
+            <div className="text-center text-slate-500 py-8">
+              {lang === 'pt' ? 'Nenhuma partida de mata-mata cadastrada.' : 'No knockout matches registered.'}
+            </div>
           )}
         </div>
       </div>
@@ -381,7 +393,7 @@ export function Admin() {
           <div>
             <h2 className="font-bold text-lg flex items-center gap-2">
               <Users className="w-5 h-5 text-emerald-400" /> 
-              Jogadores ({profiles.length})
+              {t(lang, 'admin.players')} ({profiles.length})
             </h2>
           </div>
           <button
@@ -389,7 +401,7 @@ export function Admin() {
             disabled={exporting}
             className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
           >
-            <Download className="w-4 h-4" /> Exportar Classificação
+            <Download className="w-4 h-4" /> {lang === 'pt' ? 'Exportar Classificação' : 'Export Leaderboard'}
           </button>
         </div>
 
@@ -398,10 +410,10 @@ export function Admin() {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-900/50 text-slate-400 text-xs uppercase">
                 <tr>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3 text-center">Admin</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-4 py-3">{t(lang, 'admin.playerName')}</th>
+                  <th className="px-4 py-3">{t(lang, 'admin.playerEmail')}</th>
+                  <th className="px-4 py-3 text-center">{t(lang, 'admin.playerRole')}</th>
+                  <th className="px-4 py-3 text-right">{lang === 'pt' ? 'Ações' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
@@ -411,9 +423,9 @@ export function Admin() {
                     <td className="px-4 py-3 text-slate-400">{p.email}</td>
                     <td className="px-4 py-3 text-center">
                       {p.is_admin ? (
-                        <span className="inline-flex bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs font-bold">Sim</span>
+                        <span className="inline-flex bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs font-bold">{t(lang, 'admin.admin')}</span>
                       ) : (
-                        <span className="inline-flex bg-slate-500/10 text-slate-400 px-2 py-0.5 rounded text-xs font-bold">Não</span>
+                        <span className="inline-flex bg-slate-500/10 text-slate-400 px-2 py-0.5 rounded text-xs font-bold">{t(lang, 'admin.user')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -422,7 +434,7 @@ export function Admin() {
                         disabled={togglingAdmin === p.id}
                         className="text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
                       >
-                        {p.is_admin ? 'Remover Admin' : 'Tornar Admin'}
+                        {p.is_admin ? (lang === 'pt' ? 'Remover Admin' : 'Remove Admin') : (lang === 'pt' ? 'Tornar Admin' : 'Make Admin')}
                       </button>
                     </td>
                   </tr>
@@ -444,13 +456,12 @@ export function Admin() {
         </div>
       )}
 
-      {/* Admin Tabs */}
       <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-800 p-4">
         <div className="flex bg-slate-800 rounded-lg p-1">
           {[
-            { id: 'resultados', label: 'Resultados', icon: Trophy },
-            { id: 'partidas', label: 'Partidas', icon: Calendar },
-            { id: 'jogadores', label: 'Jogadores', icon: Users }
+            { id: 'resultados', label: t(lang, 'admin.results'), icon: Trophy },
+            { id: 'partidas', label: t(lang, 'admin.matches'), icon: Calendar },
+            { id: 'jogadores', label: t(lang, 'admin.players'), icon: Users }
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -482,7 +493,7 @@ export function Admin() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-800/30">
-              <h3 className="font-bold text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-500"/> Nova Partida</h3>
+              <h3 className="font-bold text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-500"/> {t(lang, 'admin.addMatch')}</h3>
               <button onClick={() => setShowNewMatchModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -490,45 +501,45 @@ export function Admin() {
             
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Fase</label>
+                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">{lang === 'pt' ? 'Fase' : 'Phase'}</label>
                 <select
                   value={newMatch.phase}
                   onChange={e => setNewMatch(p => ({ ...p, phase: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="round_of_32">Dezesseis-avos (Round of 32)</option>
-                  <option value="round_of_16">Oitavas de Final (Round of 16)</option>
-                  <option value="quarterfinal">Quartas de Final</option>
-                  <option value="semifinal">Semifinal</option>
-                  <option value="final">Final</option>
+                  <option value="round_of_32">{lang === 'pt' ? 'Dezesseis-avos (Round of 32)' : 'Round of 32'}</option>
+                  <option value="round_of_16">{lang === 'pt' ? 'Oitavas de Final (Round of 16)' : 'Round of 16'}</option>
+                  <option value="quarterfinal">{lang === 'pt' ? 'Quartas de Final' : 'Quarterfinal'}</option>
+                  <option value="semifinal">{lang === 'pt' ? 'Semifinal' : 'Semifinal'}</option>
+                  <option value="final">{lang === 'pt' ? 'Final' : 'Final'}</option>
                 </select>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Time A</label>
+                  <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">{t(lang, 'admin.homeTeam')}</label>
                   <input
                     type="text"
                     value={newMatch.team_a}
                     onChange={e => setNewMatch(p => ({ ...p, team_a: e.target.value }))}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Ex: Brasil"
+                    placeholder={lang === 'pt' ? 'Ex: Brasil' : 'e.g. Brazil'}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Time B</label>
+                  <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">{t(lang, 'admin.awayTeam')}</label>
                   <input
                     type="text"
                     value={newMatch.team_b}
                     onChange={e => setNewMatch(p => ({ ...p, team_b: e.target.value }))}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Ex: Argentina"
+                    placeholder={lang === 'pt' ? 'Ex: Argentina' : 'e.g. Argentina'}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Data da Partida</label>
+                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">{t(lang, 'admin.matchDate')}</label>
                 <input
                   type="datetime-local"
                   value={newMatch.match_date}
@@ -538,7 +549,7 @@ export function Admin() {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Encerramento (Deadline)</label>
+                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">{lang === 'pt' ? 'Encerramento (Deadline)' : 'Deadline'}</label>
                 <input
                   type="datetime-local"
                   value={newMatch.deadline}
@@ -552,14 +563,14 @@ export function Admin() {
                   onClick={() => setShowNewMatchModal(false)}
                   className="px-4 py-2 font-medium text-slate-300 hover:text-white"
                 >
-                  Cancelar
+                  {lang === 'pt' ? 'Cancelar' : 'Cancel'}
                 </button>
                 <button
                   onClick={createNewMatch}
                   disabled={savingMatch}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50"
                 >
-                  {savingMatch ? 'Salvando...' : 'Salvar Partida'}
+                  {savingMatch ? t(lang, 'admin.saving') : t(lang, 'admin.save')}
                 </button>
               </div>
             </div>

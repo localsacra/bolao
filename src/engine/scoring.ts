@@ -17,7 +17,7 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
 
   const exactScore = a === pa && b === pb;
   const correctResult = actualResult === predResult;
-  const correctTotalGoals = (a + b) === (pa + pb);
+  const oneTeamGoalsCorrect = a === pa || b === pb;
 
   let points = 0;
   const isKnockout = match.phase !== 'group';
@@ -26,12 +26,12 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
     if (exactScore && correctResult) points += 24;
     else if (correctResult) points += 12;
 
-    if (!exactScore && correctTotalGoals) points += 3;
+    if (!exactScore && oneTeamGoalsCorrect) points += 3;
   } else {
     if (exactScore && correctResult) points += 12;
     else if (correctResult) points += 6;
 
-    if (!exactScore && correctTotalGoals) points += 2;
+    if (!exactScore && oneTeamGoalsCorrect) points += 2;
   }
 
   return points;

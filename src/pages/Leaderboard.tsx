@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
 import { formatMatchDate } from '../utils/dateFormat';
+import { useLang } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
   profiles?: { name: string } | null;
@@ -10,6 +12,7 @@ type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
 
 export function Leaderboard() {
   const { user } = useAuthStore();
+  const { lang } = useLang();
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -30,7 +33,7 @@ export function Leaderboard() {
       
       if (scoresRes.data) {
         setScores(scoresRes.data as PlayerScore[]);
-        setLastUpdated(formatMatchDate(new Date().toISOString()));
+        setLastUpdated(formatMatchDate(new Date().toISOString(), lang));
       }
 
       if (specialRes.data) {
@@ -68,7 +71,7 @@ export function Leaderboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [lang]); // Refetch on language change to update dateFormat format
 
   const leaderboardWithRank = useMemo(() => {
     const sorted = [...scores].sort((a, b) => {
@@ -135,7 +138,7 @@ export function Leaderboard() {
   if (loading && scores.length === 0) {
     return (
       <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-20 max-w-3xl mx-auto w-full p-4">
-        <h1 className="text-2xl font-bold mb-2">🏆 Classificação</h1>
+        <h1 className="text-2xl font-bold mb-2">🏆 {t(lang, 'leaderboard.title')}</h1>
         <div className="animate-pulse bg-slate-800/50 h-4 w-48 rounded mb-6"></div>
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
@@ -149,17 +152,25 @@ export function Leaderboard() {
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-24 max-w-3xl mx-auto w-full p-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-emerald-400">🏆 Classificação</h1>
+        <h1 className="text-2xl font-bold text-emerald-400">🏆 {t(lang, 'leaderboard.title')}</h1>
         {lastUpdated && (
-          <p className="text-xs text-slate-400 mt-1">Atualizado em: {lastUpdated}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {lang === 'pt' ? 'Atualizado em:' : 'Updated at:'} {lastUpdated}
+          </p>
         )}
       </div>
 
       {leaderboardWithRank.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 px-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
           <div className="text-4xl mb-4">⚽</div>
-          <h2 className="text-xl font-bold text-slate-200 mb-2">Nenhum resultado ainda</h2>
-          <p className="text-slate-400">Os pontos aparecerão aqui assim que as partidas forem encerradas!</p>
+          <h2 className="text-xl font-bold text-slate-200 mb-2">
+            {lang === 'pt' ? 'Nenhum resultado ainda' : 'No results yet'}
+          </h2>
+          <p className="text-slate-400">
+            {lang === 'pt'
+              ? 'Os pontos aparecerão aqui assim que as partidas forem encerradas!'
+              : 'Points will appear here once matches are finished!'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -194,20 +205,28 @@ export function Leaderboard() {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className={`font-semibold ${isCurrentUser ? 'text-emerald-400' : 'text-slate-200'}`}>
-                        {item.profiles?.name || 'Jogador Desconhecido'}
+                        {item.profiles?.name || (lang === 'pt' ? 'Jogador Desconhecido' : 'Unknown Player')}
                       </span>
-                      {isCurrentUser && <span className="text-[10px] uppercase font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Você</span>}
-                      {item.isTied && <span className="text-xs font-bold bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded" title="Empate">=</span >}
+                      {isCurrentUser && (
+                        <span className="text-[10px] uppercase font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                          {lang === 'pt' ? 'Você' : 'You'}
+                        </span>
+                      )}
+                      {item.isTied && (
+                        <span className="text-xs font-bold bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded" title={lang === 'pt' ? 'Empate' : 'Tie'}>
+                          =
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Partidas: {item.match_points} pts | Grupos: {item.group_points} pts | Especiais: {item.special_points} pts
+                      {lang === 'pt' ? 'Partidas' : 'Matches'}: {item.match_points} {t(lang, 'predictions.points')} | {lang === 'pt' ? 'Grupos' : 'Groups'}: {item.group_points} {t(lang, 'predictions.points')} | {lang === 'pt' ? 'Especiais' : 'Specials'}: {item.special_points} {t(lang, 'predictions.points')}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end shrink-0 pl-4">
                   <span className="text-2xl font-black text-white">{item.total_points}</span>
-                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Pontos</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">{t(lang, 'leaderboard.points')}</span>
                 </div>
               </div>
             );
@@ -217,16 +236,18 @@ export function Leaderboard() {
 
       {/* Prize Reminder Footer */}
       <div className="mt-8 bg-slate-800/80 border border-slate-700 rounded-xl p-5 text-sm text-center shadow-lg">
-        <h3 className="font-bold text-slate-200 mb-3 uppercase tracking-wide text-xs">Premiação Final</h3>
+        <h3 className="font-bold text-slate-200 mb-3 uppercase tracking-wide text-xs">
+          {lang === 'pt' ? 'Premiação Final' : 'Final Prizes'}
+        </h3>
         <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 flex-wrap">
           <div className="flex items-center justify-center gap-2 text-yellow-400 font-semibold">
-            🥇 1º lugar: 70% do valor arrecadado
+            {lang === 'pt' ? '🥇 1º lugar: 70% do valor arrecadado' : '🥇 1st place: 70% of total pool'}
           </div>
           <div className="flex items-center justify-center gap-2 text-slate-300 font-semibold">
-            🥈 2º lugar: 20% do valor arrecadado
+            {lang === 'pt' ? '🥈 2º lugar: 20% do valor arrecadado' : '🥈 2nd place: 20% of total pool'}
           </div>
           <div className="flex items-center justify-center gap-2 text-amber-600 font-semibold">
-            🥉 3º lugar: 10% do valor arrecadado
+            {lang === 'pt' ? '🥉 3º lugar: 10% do valor arrecadado' : '🥉 3rd place: 10% of total pool'}
           </div>
         </div>
       </div>
