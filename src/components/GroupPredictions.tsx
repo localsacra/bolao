@@ -392,11 +392,6 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                         +{pointsEarned} {t(lang, 'predictions.points')}
                       </span>
                     )}
-                    {isLocked && (
-                      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-red-400 bg-red-400/10 px-2.5 py-1 rounded-md">
-                        <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -469,6 +464,12 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
                   {selection.saved && <CheckCircle className="w-4 h-4 text-emerald-400" />}
                   {selection.saved ? t(lang, 'predictions.saved') : selection.saving ? t(lang, 'predictions.saving') : (lang === 'pt' ? `Salvar Grupo ${groupName}` : `Save Group ${groupName}`)}
                 </button>
+              )}
+
+              {isLocked && (
+                <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-slate-800/30 border border-slate-700/50 px-2 py-1 rounded-md w-fit mx-auto mt-2">
+                  <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
+                </div>
               )}
             </div>
           );

@@ -515,11 +515,6 @@ export function Predictions() {
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
             {formatMatchDate(match.match_date, lang)}
           </div>
-          {isDeadlinePassed && (
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
-              <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
-            </div>
-          )}
         </div>
 
         {/* Teams & Score Inputs */}
@@ -616,6 +611,12 @@ export function Predictions() {
             <div className="text-emerald-400 font-bold flex items-center gap-1">
               +{calculatePoints(match, pred)} <span className="text-xs font-normal opacity-80">{t(lang, 'predictions.points')}</span>
             </div>
+          </div>
+        )}
+
+        {isDeadlinePassed && (
+          <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-slate-800/30 border border-slate-700/50 px-2 py-1 rounded-md w-fit mx-auto mt-4">
+            <Lock className="w-3 h-3" /> {lang === 'pt' ? 'Encerrado' : 'Closed'}
           </div>
         )}
       </div>
