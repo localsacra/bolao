@@ -9,6 +9,9 @@ import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { GROUP_STAGE_LOCK } from '../utils/constants';
 
+console.log('GROUP_STAGE_LOCK:', GROUP_STAGE_LOCK);
+console.log('Is locked:', new Date() >= GROUP_STAGE_LOCK);
+
 type Match = Database['public']['Tables']['matches']['Row'];
 
 type GroupSelection = {
