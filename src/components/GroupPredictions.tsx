@@ -7,6 +7,7 @@ import { FlagIcon } from './FlagIcon';
 import { calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
+import { GROUP_STAGE_LOCK } from '../utils/constants';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 
@@ -25,6 +26,7 @@ interface GroupPredictionsProps {
 export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) {
   const { user } = useAuthStore();
   const { lang } = useLang();
+  const isLocked = new Date() >= GROUP_STAGE_LOCK;
   const [selections, setSelections] = useState<Record<string, GroupSelection>>({});
   const [thirdPlaceSelections, setThirdPlaceSelections] = useState<string[]>([]);
   
@@ -158,20 +160,6 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
     }, 3000);
   };
 
-  const getGroupDeadline = (group: string) => {
-    const groupMatches = matches.filter(m => m.phase === 'group' && m.group_name === group);
-    if (groupMatches.length === 0) return null;
-    const deadlines = groupMatches.map(m => new Date(m.deadline).getTime());
-    return new Date(Math.min(...deadlines));
-  };
-
-  const isGroupLocked = (group: string) => {
-    const deadline = getGroupDeadline(group);
-    if (!deadline) return false;
-    const afterGroupStage = new Date() > new Date('2026-06-27T23:59:59Z');
-    return new Date() > deadline || afterGroupStage;
-  };
-
   const triggerShake = (groupName: string) => {
     setShakingGroup(groupName);
     setTimeout(() => {
@@ -180,7 +168,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
   };
 
   function handleTeamClick(groupName: string, team: string) {
-    if (isGroupLocked(groupName)) return;
+    if (isLocked) return;
 
     setSelections(prev => {
       const current = prev[groupName] || { first: null, second: null, saved: false, saving: false };
@@ -225,8 +213,9 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
   }
 
   const handleThirdPlaceClick = (team: string) => {
+    if (isLocked) return;
     const teamGroup = getGroupForTeam(team);
-    if (!teamGroup || isGroupLocked(teamGroup)) return;
+    if (!teamGroup) return;
 
     setThirdSaveStatus('idle');
 
@@ -255,7 +244,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
 
   const saveGroup = async (groupName: string) => {
     if (!user) return;
-    if (isGroupLocked(groupName)) return;
+    if (isLocked) return;
 
     const selection = selections[groupName];
     if (!selection) return;
@@ -300,6 +289,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
 
   const saveThirdPlaceSelections = async () => {
     if (!user) return;
+    if (isLocked) return;
 
     setThirdSaveStatus('saving');
     try {
@@ -367,7 +357,6 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
         {groups.map(groupName => {
           const groupTeams = teamsByGroup[groupName] || [];
           const selection = selections[groupName] || { first: null, second: null, saved: false, saving: false };
-          const isLocked = isGroupLocked(groupName);
           const isShaking = shakingGroup === groupName;
           
           // Check actual standings score if available
@@ -528,7 +517,6 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.keys(teamsByGroup).sort().map(gName => {
               const groupTeams = teamsByGroup[gName] || [];
-              const isLocked = isGroupLocked(gName);
 
               return (
                 <div key={gName} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4">
@@ -591,7 +579,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
           <div className="mt-8 pt-4 border-t border-slate-700 flex justify-end">
             <button
               onClick={saveThirdPlaceSelections}
-              disabled={thirdSaveStatus === 'saving' || thirdSaveStatus === 'saved' || thirdPlaceSelections.length === 0}
+              disabled={isLocked || thirdSaveStatus === 'saving' || thirdSaveStatus === 'saved' || thirdPlaceSelections.length === 0}
               className={`px-6 py-2.5 font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70 ${
                 thirdSaveStatus === 'saved'
                   ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'

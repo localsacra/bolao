@@ -14,6 +14,7 @@ type SpecialPredictionRow = Database['public']['Tables']['special_predictions'][
 import { calculatePoints } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
+import { GROUP_STAGE_LOCK } from '../utils/constants';
 
 const TABS = ["Todos", "Grupos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -49,6 +50,7 @@ const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
 export function Predictions() {
   const { user } = useAuthStore();
   const { lang } = useLang();
+  const isSpecialLocked = new Date() >= GROUP_STAGE_LOCK;
   const [matches, setMatches] = useState<Match[]>([]);
   const [localPredictions, setLocalPredictions] = useState<Record<number, Partial<Prediction>>>({});
   const [specialPreds, setSpecialPreds] = useState<Partial<SpecialPredictionRow>>({
@@ -154,7 +156,11 @@ export function Predictions() {
   const savePrediction = async (matchId: number) => {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
-    if (new Date() > new Date(match.deadline)) return;
+    const isGroup = match.phase === 'group';
+    const isLocked = isGroup
+      ? new Date() >= GROUP_STAGE_LOCK
+      : new Date() > new Date(match.deadline);
+    if (isLocked) return;
 
     const pred = localPredictions[matchId];
     if (pred?.predicted_score_a === undefined || pred?.predicted_score_b === undefined) return;
@@ -235,6 +241,7 @@ export function Predictions() {
   };
 
   const saveSpecial = async () => {
+    if (new Date() >= GROUP_STAGE_LOCK) return;
     setSpecialSaveStatus('saving');
     
     try {
@@ -344,7 +351,8 @@ export function Predictions() {
                     setSpecialPreds(p => ({ ...p, champion: e.target.value }));
                     setSpecialSaveStatus('idle');
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  disabled={isSpecialLocked}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                   placeholder={lang === 'pt' ? 'Ex: Brasil' : 'e.g. Brazil'}
                 />
               </div>
@@ -359,7 +367,8 @@ export function Predictions() {
                     setSpecialPreds(p => ({ ...p, vice_champion: e.target.value }));
                     setSpecialSaveStatus('idle');
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  disabled={isSpecialLocked}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                   placeholder={lang === 'pt' ? 'Ex: Argentina' : 'e.g. Argentina'}
                 />
               </div>
@@ -374,7 +383,8 @@ export function Predictions() {
                     setSpecialPreds(p => ({ ...p, third_place: e.target.value }));
                     setSpecialSaveStatus('idle');
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  disabled={isSpecialLocked}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                   placeholder={lang === 'pt' ? 'Ex: França' : 'e.g. France'}
                 />
               </div>
@@ -389,7 +399,8 @@ export function Predictions() {
                     setSpecialPreds(p => ({ ...p, top_scorer: e.target.value }));
                     setSpecialSaveStatus('idle');
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  disabled={isSpecialLocked}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                   placeholder={lang === 'pt' ? 'Ex: Vini Jr' : 'e.g. Vini Jr'}
                 />
               </div>
@@ -404,23 +415,28 @@ export function Predictions() {
                     setSpecialPreds(p => ({ ...p, best_player: e.target.value }));
                     setSpecialSaveStatus('idle');
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  disabled={isSpecialLocked}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                   placeholder={lang === 'pt' ? 'Ex: Bellingham' : 'e.g. Bellingham'}
                 />
               </div>
               <button 
                 onClick={saveSpecial}
-                disabled={specialSaveStatus === 'saving' || specialSaveStatus === 'saved'}
+                disabled={isSpecialLocked || specialSaveStatus === 'saving' || specialSaveStatus === 'saved'}
                 className={`w-full font-medium py-2 rounded-lg transition-colors flex justify-center items-center gap-2 disabled:opacity-70 ${
-                  specialSaveStatus === 'saved'
+                  specialSaveStatus === 'saved' || isSpecialLocked
                     ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/20'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                 }`}
               >
-                {specialSaveStatus === 'saving' && t(lang, 'predictions.saving')}
-                {specialSaveStatus === 'saved' && `✓ ${t(lang, 'predictions.saved')}!`}
-                {specialSaveStatus === 'error' && (lang === 'pt' ? 'Erro ao Salvar' : 'Error Saving')}
-                {specialSaveStatus === 'idle' && (lang === 'pt' ? 'Salvar Palpites Especiais' : 'Save Special Predictions')}
+                {isSpecialLocked ? (lang === 'pt' ? '🔒 Palpites Encerrados' : '🔒 Predictions Closed') : (
+                  <>
+                    {specialSaveStatus === 'saving' && t(lang, 'predictions.saving')}
+                    {specialSaveStatus === 'saved' && `✓ ${t(lang, 'predictions.saved')}!`}
+                    {specialSaveStatus === 'error' && (lang === 'pt' ? 'Erro ao Salvar' : 'Error Saving')}
+                    {specialSaveStatus === 'idle' && (lang === 'pt' ? 'Salvar Palpites Especiais' : 'Save Special Predictions')}
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -480,7 +496,10 @@ export function Predictions() {
   );
 
   function renderMatchCard(match: Match) {
-    const isDeadlinePassed = new Date() > new Date(match.deadline);
+    const isGroup = match.phase === 'group';
+    const isDeadlinePassed = isGroup
+      ? new Date() >= GROUP_STAGE_LOCK
+      : new Date() > new Date(match.deadline);
     const pred = localPredictions[match.id] || {};
     const isKnockout = match.phase !== 'group';
     const isDraw = pred.predicted_score_a !== undefined && 
