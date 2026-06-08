@@ -21,9 +21,10 @@ type GroupSelection = {
 interface GroupPredictionsProps {
   matches: Match[];
   groupName?: string; // Optional filter for a single group card
+  onSave?: () => void;
 }
 
-export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) {
+export function GroupPredictions({ matches, groupName, onSave }: GroupPredictionsProps) {
   const { user } = useAuthStore();
   const { lang } = useLang();
   const isLocked = new Date() >= GROUP_STAGE_LOCK;
@@ -273,6 +274,8 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
 
       if (error) throw error;
 
+      if (onSave) onSave();
+
       setSelections(prev => ({
         ...prev,
         [groupName]: { ...prev[groupName], saving: false, saved: true }
@@ -313,6 +316,7 @@ export function GroupPredictions({ matches, groupName }: GroupPredictionsProps) 
         .upsert(upserts, { onConflict: 'player_id,group_name' });
 
       if (error) throw error;
+      if (onSave) onSave();
       setThirdSaveStatus('saved');
       
       // Update all group saved states to true since saving third places upserts their latest state

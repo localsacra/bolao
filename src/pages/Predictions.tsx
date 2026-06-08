@@ -62,6 +62,16 @@ export function Predictions() {
   const [saveStatus, setSaveStatus] = useState<Record<number, 'saving' | 'saved' | 'error' | undefined>>({});
   const [specialSaveStatus, setSpecialSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [groupPredictions, setGroupPredictions] = useState<any[]>([]);
+
+  const refetchGroupPredictions = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('group_predictions')
+      .select('*')
+      .eq('player_id', user.id);
+    if (data) setGroupPredictions(data);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -69,10 +79,11 @@ export function Predictions() {
     const fetchData = async () => {
       setLoading(true);
       
-      const [matchesRes, predsRes, specialRes] = await Promise.all([
+      const [matchesRes, predsRes, specialRes, groupPredsRes] = await Promise.all([
         supabase.from('matches').select('*').order('match_date', { ascending: true }),
         supabase.from('predictions').select('*').eq('player_id', user.id),
-        supabase.from('special_predictions').select('*').eq('player_id', user.id).maybeSingle()
+        supabase.from('special_predictions').select('*').eq('player_id', user.id).maybeSingle(),
+        supabase.from('group_predictions').select('*').eq('player_id', user.id)
       ]);
 
       if (matchesRes.data) setMatches(matchesRes.data);
@@ -89,6 +100,10 @@ export function Predictions() {
       if (specialRes.data) {
         setSpecialPreds(specialRes.data);
         setSpecialSaveStatus('saved');
+      }
+
+      if (groupPredsRes.data) {
+        setGroupPredictions(groupPredsRes.data);
       }
 
       setLoading(false);
@@ -292,7 +307,65 @@ export function Predictions() {
       setSpecialSaveStatus('error');
     }
   };
+  const getTabBadgeCount = (tabKey: string): number => {
+    // Hide badges on all tabs when group stage lock has passed
+    const groupStageLocked = new Date() >= GROUP_STAGE_LOCK;
+    if (groupStageLocked) return 0;
 
+    // Special predictions incomplete count
+    let unfilledSpecial = 0;
+    if (!specialPreds.champion) unfilledSpecial++;
+    if (!specialPreds.vice_champion) unfilledSpecial++;
+    if (!specialPreds.third_place) unfilledSpecial++;
+    if (!specialPreds.top_scorer) unfilledSpecial++;
+    if (!specialPreds.best_player) unfilledSpecial++;
+
+    if (tabKey === 'Especiais') {
+      return unfilledSpecial;
+    }
+
+    if (tabKey === 'Grupos') {
+      const GROUP_NAMES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+      let incompleteGroupsCount = 0;
+      GROUP_NAMES.forEach(gName => {
+        const pred = groupPredictions.find(p => p.group_name === gName);
+        if (!pred || !pred.position_1 || !pred.position_2) {
+          incompleteGroupsCount++;
+        }
+      });
+      const selectedThirdPlacesCount = groupPredictions.filter(p => p.position_3).length;
+      const thirdPlaceIncomplete = Math.max(0, 8 - selectedThirdPlacesCount);
+      return incompleteGroupsCount + thirdPlaceIncomplete;
+    }
+
+    if (tabKey === 'Todos') {
+      let incompleteGroupMatches = 0;
+      matches.forEach(m => {
+        if (m.phase === 'group') {
+          const pred = localPredictions[m.id];
+          const hasScoreA = pred && pred.predicted_score_a !== undefined && pred.predicted_score_a !== null;
+          const hasScoreB = pred && pred.predicted_score_b !== undefined && pred.predicted_score_b !== null;
+          if (!hasScoreA || !hasScoreB) {
+            incompleteGroupMatches++;
+          }
+        }
+      });
+      return incompleteGroupMatches + unfilledSpecial;
+    }
+
+    // Individual group tabs (A, B, C...)
+    const groupMatches = matches.filter(m => m.group_name === tabKey);
+    let incompleteMatchesCount = 0;
+    groupMatches.forEach(m => {
+      const pred = localPredictions[m.id];
+      const hasScoreA = pred && pred.predicted_score_a !== undefined && pred.predicted_score_a !== null;
+      const hasScoreB = pred && pred.predicted_score_b !== undefined && pred.predicted_score_b !== null;
+      if (!hasScoreA || !hasScoreB) {
+        incompleteMatchesCount++;
+      }
+    });
+    return incompleteMatchesCount;
+  };
 
   if (loading) {
     return (
@@ -319,19 +392,30 @@ export function Predictions() {
             <button
               key={g}
               onClick={() => setActiveTab(g)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 activeTab === g 
                   ? 'bg-emerald-500 text-white' 
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {g === 'Todos' 
-                ? (lang === 'pt' ? 'Todos' : 'All') 
-                : g === 'Especiais' 
-                ? (lang === 'pt' ? 'Especiais' : 'Special') 
-                : g === 'Grupos' 
-                ? (lang === 'pt' ? 'Grupos' : 'Groups') 
-                : (lang === 'pt' ? `Grupo ${g}` : `Group ${g}`)}
+              <span>
+                {g === 'Todos' 
+                  ? (lang === 'pt' ? 'Todos' : 'All') 
+                  : g === 'Especiais' 
+                  ? (lang === 'pt' ? 'Especiais' : 'Special') 
+                  : g === 'Grupos' 
+                  ? (lang === 'pt' ? 'Grupos' : 'Groups') 
+                  : (lang === 'pt' ? `Grupo ${g}` : `Group ${g}`)}
+              </span>
+              {getTabBadgeCount(g) > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                  activeTab === g
+                    ? 'bg-white text-emerald-600'
+                    : 'bg-emerald-500 text-white'
+                }`}>
+                  {getTabBadgeCount(g)}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -450,12 +534,12 @@ export function Predictions() {
 
         {/* Full Group Predictions tab view */}
         {activeTab === 'Grupos' && (
-          <GroupPredictions matches={matches} />
+          <GroupPredictions matches={matches} onSave={refetchGroupPredictions} />
         )}
 
         {/* Group Prediction card at the TOP of group matches */}
         {activeTab !== 'Todos' && activeTab !== 'Especiais' && activeTab !== 'Grupos' && (
-          <GroupPredictions matches={matches} groupName={activeTab} />
+          <GroupPredictions matches={matches} groupName={activeTab} onSave={refetchGroupPredictions} />
         )}
 
         {/* Matches List */}
