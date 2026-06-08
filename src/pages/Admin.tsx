@@ -50,7 +50,7 @@ export function Admin() {
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
   
   // Tab 1 state
-  const [editingScores, setEditingScores] = useState<Record<number, { a: string, b: string }>>({});
+  const [editingScores, setEditingScores] = useState<Record<number, { a: string, b: string, tiebreaker?: 'A' | 'B' | '' }>>({});
   const [savingResult, setSavingResult] = useState<number | null>(null);
 
   // Tab 2 state
@@ -90,8 +90,18 @@ export function Admin() {
     setEditingScores(prev => ({
       ...prev,
       [matchId]: {
-        ...(prev[matchId] || { a: '', b: '' }),
+        ...(prev[matchId] || { a: '', b: '', tiebreaker: '' }),
         [team]: val
+      }
+    }));
+  };
+
+  const handleTiebreakerChange = (matchId: number, val: 'A' | 'B' | '') => {
+    setEditingScores(prev => ({
+      ...prev,
+      [matchId]: {
+        ...(prev[matchId] || { a: '', b: '', tiebreaker: '' }),
+        tiebreaker: val
       }
     }));
   };
@@ -107,8 +117,23 @@ export function Admin() {
     const actual_score_a = parseInt(scores.a, 10);
     const actual_score_b = parseInt(scores.b, 10);
 
+    const match = matches.find(m => m.id === matchId);
+    const isKnockout = match && match.phase !== 'group';
+    const isDraw = actual_score_a === actual_score_b;
+    let actual_tiebreaker_winner: 'A' | 'B' | null = null;
+
+    if (isKnockout && isDraw) {
+      if (scores.tiebreaker === 'A' || scores.tiebreaker === 'B') {
+        actual_tiebreaker_winner = scores.tiebreaker;
+      } else {
+        showToast(lang === 'pt' ? 'Selecione o vencedor do desempate' : 'Select the tie-breaker winner', 'error');
+        setSavingResult(null);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('matches')
-      .update({ actual_score_a, actual_score_b })
+      .update({ actual_score_a, actual_score_b, actual_tiebreaker_winner })
       .eq('id', matchId);
 
     if (error) {
@@ -271,6 +296,10 @@ export function Admin() {
   const renderMatchAdminCard = (match: Match) => {
     const hasResult = match.actual_score_a !== null && match.actual_score_b !== null;
     const isEditing = editingScores[match.id] !== undefined;
+    const isKnockout = match.phase !== 'group';
+    const currentA = editingScores[match.id]?.a ?? (hasResult ? String(match.actual_score_a) : '');
+    const currentB = editingScores[match.id]?.b ?? (hasResult ? String(match.actual_score_b) : '');
+    const isCurrentDraw = currentA !== '' && currentB !== '' && currentA === currentB;
 
     return (
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
@@ -313,6 +342,33 @@ export function Admin() {
           </div>
         </div>
 
+        {/* Tie-breaker dropdown / display */}
+        {isKnockout && isCurrentDraw && (!hasResult || isEditing) && (
+          <div className="mt-3 pt-3 border-t border-slate-700 flex items-center gap-2 justify-center">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+              {lang === 'pt' ? 'Vencedor do desempate:' : 'Tie-breaker Winner:'}
+            </span>
+            <select
+              value={editingScores[match.id]?.tiebreaker ?? (hasResult ? (match.actual_tiebreaker_winner || '') : '')}
+              onChange={e => handleTiebreakerChange(match.id, e.target.value as 'A' | 'B' | '')}
+              className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-emerald-500 animate-in fade-in"
+            >
+              <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
+              <option value="A">{match.team_a}</option>
+              <option value="B">{match.team_b}</option>
+            </select>
+          </div>
+        )}
+
+        {isKnockout && match.actual_score_a === match.actual_score_b && hasResult && !isEditing && (
+          <div className="mt-3 pt-3 border-t border-slate-700/50 text-center text-xs text-emerald-400 font-semibold">
+            {lang === 'pt' ? 'Vencedor do desempate: ' : 'Tie-breaker Winner: '}
+            <span className="text-white">
+              {match.actual_tiebreaker_winner === 'A' ? match.team_a : match.actual_tiebreaker_winner === 'B' ? match.team_b : (lang === 'pt' ? 'Não definido' : 'Not set')}
+            </span>
+          </div>
+        )}
+
         <div className="mt-4 flex justify-end">
           {(!hasResult || isEditing) ? (
             <button
@@ -328,7 +384,11 @@ export function Admin() {
               onClick={() => {
                 setEditingScores(prev => ({
                   ...prev,
-                  [match.id]: { a: String(match.actual_score_a), b: String(match.actual_score_b) }
+                  [match.id]: {
+                    a: String(match.actual_score_a),
+                    b: String(match.actual_score_b),
+                    tiebreaker: match.actual_tiebreaker_winner || ''
+                  }
                 }));
               }}
               className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"

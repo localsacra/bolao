@@ -124,13 +124,27 @@ export function Predictions() {
   };
 
   const handleTieChange = (matchId: number, field: 'team' | 'method', value: string) => {
-    setLocalPredictions(prev => ({
-      ...prev,
-      [matchId]: {
-        ...prev[matchId],
+    const match = matches.find(m => m.id === matchId);
+    setLocalPredictions(prev => {
+      const pred = prev[matchId] || {};
+      const nextPred = {
+        ...pred,
         [`advance_${field}`]: value
+      };
+      if (field === 'team' && match) {
+        if (value === match.team_a) {
+          nextPred.predicted_tiebreaker_winner = 'A';
+        } else if (value === match.team_b) {
+          nextPred.predicted_tiebreaker_winner = 'B';
+        } else {
+          nextPred.predicted_tiebreaker_winner = null;
+        }
       }
-    }));
+      return {
+        ...prev,
+        [matchId]: nextPred
+      };
+    });
     setSaveStatus(prev => ({
       ...prev,
       [matchId]: undefined
@@ -159,13 +173,46 @@ export function Predictions() {
         return;
       }
 
+      const isDraw = pred.predicted_score_a === pred.predicted_score_b;
+      const isKnockout = match.phase !== 'group';
+
+      let advance_team = pred.advance_team || null;
+      let advance_method = pred.advance_method || null;
+      let predicted_tiebreaker_winner = pred.predicted_tiebreaker_winner || null;
+
+      if (isKnockout && isDraw) {
+        if (advance_team === match.team_a) {
+          predicted_tiebreaker_winner = 'A';
+        } else if (advance_team === match.team_b) {
+          predicted_tiebreaker_winner = 'B';
+        } else {
+          predicted_tiebreaker_winner = null;
+        }
+      } else {
+        advance_team = null;
+        advance_method = null;
+        predicted_tiebreaker_winner = null;
+      }
+
+      // Update local state to cleaned-up values
+      setLocalPredictions(prev => ({
+        ...prev,
+        [matchId]: {
+          ...prev[matchId],
+          advance_team,
+          advance_method,
+          predicted_tiebreaker_winner
+        }
+      }));
+
       const payload = {
         player_id: user.id,
         match_id: matchId,
         predicted_score_a: pred.predicted_score_a,
         predicted_score_b: pred.predicted_score_b,
-        advance_team: pred.advance_team || null,
-        advance_method: pred.advance_method || null,
+        advance_team,
+        advance_method,
+        predicted_tiebreaker_winner,
       };
 
       console.log('Attempting upsert with payload:', payload);

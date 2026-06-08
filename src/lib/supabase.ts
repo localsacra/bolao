@@ -46,6 +46,7 @@ export interface Database {
           deadline: string
           actual_score_a: number | null
           actual_score_b: number | null
+          actual_tiebreaker_winner: 'A' | 'B' | null
         }
         Insert: {
           id?: number
@@ -57,6 +58,7 @@ export interface Database {
           deadline: string
           actual_score_a?: number | null
           actual_score_b?: number | null
+          actual_tiebreaker_winner?: 'A' | 'B' | null
         }
         Update: {
           id?: number
@@ -68,6 +70,7 @@ export interface Database {
           deadline?: string
           actual_score_a?: number | null
           actual_score_b?: number | null
+          actual_tiebreaker_winner?: 'A' | 'B' | null
         }
         Relationships: any[]
       }
@@ -80,6 +83,7 @@ export interface Database {
           predicted_score_b: number
           advance_team: string | null
           advance_method: string | null
+          predicted_tiebreaker_winner: 'A' | 'B' | null
           created_at: string
         }
         Insert: {
@@ -90,6 +94,7 @@ export interface Database {
           predicted_score_b: number
           advance_team?: string | null
           advance_method?: string | null
+          predicted_tiebreaker_winner?: 'A' | 'B' | null
           created_at?: string
         }
         Update: {
@@ -100,6 +105,7 @@ export interface Database {
           predicted_score_b?: number
           advance_team?: string | null
           advance_method?: string | null
+          predicted_tiebreaker_winner?: 'A' | 'B' | null
           created_at?: string
         }
         Relationships: any[]

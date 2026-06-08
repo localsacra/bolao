@@ -27,6 +27,17 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
     else if (correctResult) points += 12;
 
     if (!exactScore && oneTeamGoalsCorrect) points += 3;
+
+    // Tie-breaker bonus (+5 pts)
+    if (
+      pa === pb &&
+      a === b &&
+      pred.predicted_tiebreaker_winner &&
+      match.actual_tiebreaker_winner &&
+      pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner
+    ) {
+      points += 5;
+    }
   } else {
     if (exactScore && correctResult) points += 12;
     else if (correctResult) points += 6;
