@@ -16,7 +16,7 @@ import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { GROUP_STAGE_LOCK } from '../utils/constants';
 
-const TABS = ["Todos", "Grupos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+const TABS = ["Todos", "Especiais", "Grupos", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 
 const PHASE_ORDER: Record<string, number> = {
@@ -325,7 +325,13 @@ export function Predictions() {
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {g === 'Todos' ? (lang === 'pt' ? 'Todos' : 'All') : g === 'Grupos' ? (lang === 'pt' ? 'Grupos' : 'Groups') : (lang === 'pt' ? `Grupo ${g}` : `Group ${g}`)}
+              {g === 'Todos' 
+                ? (lang === 'pt' ? 'Todos' : 'All') 
+                : g === 'Especiais' 
+                ? (lang === 'pt' ? 'Especiais' : 'Special') 
+                : g === 'Grupos' 
+                ? (lang === 'pt' ? 'Grupos' : 'Groups') 
+                : (lang === 'pt' ? `Grupo ${g}` : `Group ${g}`)}
             </button>
           ))}
         </div>
@@ -333,7 +339,7 @@ export function Predictions() {
 
       <div className="p-4 space-y-6">
         {/* Special Predictions */}
-        {(activeTab === 'Todos' || activeTab === 'A') && (
+        {(activeTab === 'Todos' || activeTab === 'Especiais') && (
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-lg">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />
@@ -448,12 +454,12 @@ export function Predictions() {
         )}
 
         {/* Group Prediction card at the TOP of group matches */}
-        {activeTab !== 'Todos' && activeTab !== 'Grupos' && (
+        {activeTab !== 'Todos' && activeTab !== 'Especiais' && activeTab !== 'Grupos' && (
           <GroupPredictions matches={matches} groupName={activeTab} />
         )}
 
         {/* Matches List */}
-        {activeTab !== 'Grupos' && Object.entries(groupedMatches)
+        {activeTab !== 'Grupos' && activeTab !== 'Especiais' && Object.entries(groupedMatches)
           .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99))
           .map(([phase, phaseMatches]) => (
           <div key={phase} className="space-y-4">
@@ -486,7 +492,7 @@ export function Predictions() {
           </div>
         ))}
 
-        {activeTab !== 'Grupos' && filteredMatches.length === 0 && (
+        {activeTab !== 'Grupos' && activeTab !== 'Especiais' && filteredMatches.length === 0 && (
           <div className="text-center text-slate-500 py-10">
             {lang === 'pt' ? 'Nenhuma partida encontrada para este filtro.' : 'No matches found for this filter.'}
           </div>
