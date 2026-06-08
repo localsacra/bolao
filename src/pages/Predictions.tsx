@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
 import type { Database } from '../lib/supabase';
-import { formatMatchDate } from '../utils/dateFormat';
+import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
 import { GroupPredictions } from '../components/GroupPredictions';
 
@@ -600,7 +600,7 @@ export function Predictions() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
-            {formatMatchDate(match.match_date, lang)}
+            {formatMatchTime(match.match_date)}
           </div>
         </div>
 

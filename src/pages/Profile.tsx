@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { LogOut, Trophy, Star, Calendar, Loader2, ArrowRight } from 'lucide-react';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
+import { formatProfileDate } from '../utils/dateUtils';
 
 export function Profile() {
   const { user, profile, logout } = useAuthStore();
@@ -69,11 +70,7 @@ export function Profile() {
 
   // Format creation date
   const memberSince = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric'
-      })
+    ? formatProfileDate(profile.created_at)
     : '';
 
   const totalPoints = stats?.total_points ?? 0;

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
-import { formatMatchDate } from '../utils/dateFormat';
+import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
@@ -303,7 +303,7 @@ export function Admin() {
 
     return (
       <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-        <div className="text-xs text-slate-400 mb-2">{formatMatchDate(match.match_date, lang)}</div>
+        <div className="text-xs text-slate-400 mb-2">{formatMatchTime(match.match_date)}</div>
         <div className="flex items-center justify-between">
           <div className="flex-1 font-medium flex items-center justify-start gap-2">
             <span>{match.team_a}</span>
@@ -431,8 +431,8 @@ export function Admin() {
                 </div>
               </div>
               <div className="text-right text-xs text-slate-400">
-                {lang === 'pt' ? 'Data' : 'Date'}: {formatMatchDate(m.match_date, lang)}<br/>
-                Deadline: {formatMatchDate(m.deadline, lang)}
+                {lang === 'pt' ? 'Data' : 'Date'}: {formatMatchTime(m.match_date)}<br/>
+                Deadline: {formatMatchTime(m.deadline)}
               </div>
             </div>
           ))}

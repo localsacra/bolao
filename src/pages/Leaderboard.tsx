@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
-import { formatMatchDate } from '../utils/dateFormat';
+import { formatMatchTime } from '../utils/dateUtils';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 
@@ -33,7 +33,7 @@ export function Leaderboard() {
       
       if (scoresRes.data) {
         setScores(scoresRes.data as PlayerScore[]);
-        setLastUpdated(formatMatchDate(new Date().toISOString(), lang));
+        setLastUpdated(formatMatchTime(new Date().toISOString()));
       }
 
       if (specialRes.data) {
