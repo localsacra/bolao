@@ -68,7 +68,6 @@ export function Leaderboard() {
   const [matchPredictionCounts, setMatchPredictionCounts] = useState<Record<string, number>>({});
   const [groupPredictionCounts, setGroupPredictionCounts] = useState<Record<string, number>>({});
   const [specialPredictionCounts, setSpecialPredictionCounts] = useState<Record<string, number>>({});
-  const [totalMatches, setTotalMatches] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [championPredictions, setChampionPredictions] = useState<Record<string, string>>({});
@@ -118,8 +117,6 @@ export function Leaderboard() {
         console.error('Error fetching match count:', matchCountRes.error);
         return;
       }
-      
-      setTotalMatches(matchCountRes.count || 0);
 
       const resultsExist = matchesCheckRes.data && matchesCheckRes.data.length > 0;
       setHasResults(!!resultsExist);
@@ -409,9 +406,6 @@ export function Leaderboard() {
                               ? (lang === 'pt' ? 'Enviado' : 'Submitted')
                               : (lang === 'pt' ? 'Pendente' : 'Pending')}
                           </span>
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {matchCount} / {totalMatches || TOTAL_MATCH_PREDICTIONS}
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-1">
