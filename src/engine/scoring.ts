@@ -1,9 +1,15 @@
+import { isKnownPhase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 
 export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefined): number => {
+  if (!isKnownPhase(match.phase)) {
+    console.warn(`Unknown match phase: "${match.phase}" — returning 0`);
+    return 0;
+  }
+
   if (!pred || pred.predicted_score_a === undefined || pred.predicted_score_b === undefined) return 0;
   if (match.actual_score_a === null || match.actual_score_b === null) return 0;
 

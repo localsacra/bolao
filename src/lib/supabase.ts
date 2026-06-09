@@ -8,6 +8,21 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export const KNOWN_PHASES = [
+  'group',
+  'round_of_16',
+  'quarter_final',
+  'semi_final',
+  'third_place',
+  'final',
+] as const;
+
+export type MatchPhase = typeof KNOWN_PHASES[number];
+
+export function isKnownPhase(phase: string): phase is MatchPhase {
+  return (KNOWN_PHASES as readonly string[]).includes(phase);
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -38,7 +53,7 @@ export interface Database {
       matches: {
         Row: {
           id: number
-          phase: string
+          phase: MatchPhase
           group_name: string
           team_a: string
           team_b: string
@@ -208,11 +223,11 @@ export interface Database {
   }
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY
+const supabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.SUPABASE_URL) : undefined
+const supabaseAnonKey = (typeof import.meta !== 'undefined' && import.meta.env) ? (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY) : undefined
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Missing Supabase environment variables. Please check your configuration.')
 }
 
-export const supabase = createClient<Database>(supabaseUrl || '', supabaseAnonKey || '')
+export const supabase = createClient<Database>(supabaseUrl || 'https://placeholder-url-for-testing.supabase.co', supabaseAnonKey || 'placeholder-anon-key')
