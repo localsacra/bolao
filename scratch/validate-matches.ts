@@ -38,18 +38,10 @@ GROUP_STAGE_MATCHES.forEach((match, index) => {
     teamToGroup[team] = match.group;
   });
 
-  // Verify ISO date/time format (kickoff and deadline)
-  const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-  if (!dateRegex.test(match.utcDate)) {
-    errors.push(`${matchDesc} has invalid utcDate "${match.utcDate}". Expected ISO 8601 UTC format.`);
-  }
-  if (!dateRegex.test(match.deadline)) {
-    errors.push(`${matchDesc} has invalid deadline "${match.deadline}". Expected ISO 8601 UTC format.`);
-  }
-
-  // Verify deadline matches utcDate
-  if (match.utcDate !== match.deadline) {
-    errors.push(`${matchDesc} has mismatch between utcDate (${match.utcDate}) and deadline (${match.deadline}).`);
+  // Verify ISO date/time format (kickoff)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/;
+  if (!dateRegex.test(match.matchDate)) {
+    errors.push(`${matchDesc} has invalid matchDate "${match.matchDate}". Expected ISO 8601 with -03:00 offset format.`);
   }
 
   // Verify city and venue are populated
