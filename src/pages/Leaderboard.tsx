@@ -5,7 +5,12 @@ import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
-import { GROUP_STAGE_LOCK } from '../utils/constants';
+import {
+  GROUP_STAGE_LOCK,
+  TOTAL_MATCH_PREDICTIONS,
+  TOTAL_GROUP_PREDICTIONS,
+  TOTAL_SPECIAL_PREDICTIONS
+} from '../utils/constants';
 
 type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
   profiles?: { name: string } | null;
@@ -59,9 +64,10 @@ export function Leaderboard() {
   const { lang } = useLang();
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [profiles, setProfiles] = useState<Database['public']['Tables']['profiles']['Row'][]>([]);
-  const [entrantIds, setEntrantIds] = useState<Set<string>>(new Set());
   const [hasResults, setHasResults] = useState(false);
-  const [predictionCounts, setPredictionCounts] = useState<Record<string, number>>({});
+  const [matchPredictionCounts, setMatchPredictionCounts] = useState<Record<string, number>>({});
+  const [groupPredictionCounts, setGroupPredictionCounts] = useState<Record<string, number>>({});
+  const [specialPredictionCounts, setSpecialPredictionCounts] = useState<Record<string, number>>({});
   const [totalMatches, setTotalMatches] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -127,16 +133,17 @@ export function Leaderboard() {
         setProfiles(profilesRes.data);
       }
 
-      const activeEntrantIds = new Set<string>();
-      const predCounts: Record<string, number> = {};
-
+      const matchCounts: Record<string, number> = {};
       predsRes.data?.forEach(p => {
-        activeEntrantIds.add(p.player_id);
-        predCounts[p.player_id] = (predCounts[p.player_id] || 0) + 1;
+        matchCounts[p.player_id] = (matchCounts[p.player_id] || 0) + 1;
       });
 
-      groupPredsRes.data?.forEach(p => activeEntrantIds.add(p.player_id));
-      
+      const groupCounts: Record<string, number> = {};
+      groupPredsRes.data?.forEach(p => {
+        groupCounts[p.player_id] = (groupCounts[p.player_id] || 0) + 1;
+      });
+
+      const specialCounts: Record<string, number> = {};
       if (specialRes.data) {
         const officialRow = specialRes.data.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
         setActualChampion(officialRow?.champion || null);
@@ -145,14 +152,22 @@ export function Leaderboard() {
         specialRes.data.forEach(r => {
           if (r.player_id !== '00000000-0000-0000-0000-000000000000') {
             map[r.player_id] = r.champion;
-            activeEntrantIds.add(r.player_id);
+            
+            let count = 0;
+            if (r.champion) count++;
+            if (r.vice_champion) count++;
+            if (r.third_place) count++;
+            if (r.top_scorer) count++;
+            if (r.best_player) count++;
+            specialCounts[r.player_id] = count;
           }
         });
         setChampionPredictions(map);
       }
 
-      setEntrantIds(activeEntrantIds);
-      setPredictionCounts(predCounts);
+      setMatchPredictionCounts(matchCounts);
+      setGroupPredictionCounts(groupCounts);
+      setSpecialPredictionCounts(specialCounts);
     } finally {
       setLoading(false);
     }
@@ -235,9 +250,9 @@ export function Leaderboard() {
 
   const activeEntrants = useMemo(() => {
     return profiles
-      .filter(profile => entrantIds.has(profile.id))
+      .filter(profile => profile.id !== '00000000-0000-0000-0000-000000000000')
       .sort((a, b) => a.name.localeCompare(b.name, lang));
-  }, [profiles, entrantIds, lang]);
+  }, [profiles, lang]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -348,8 +363,14 @@ export function Leaderboard() {
           <div className="space-y-3">
             {activeEntrants.map((profile) => {
               const isCurrentUser = user?.id === profile.id;
-              const predCount = predictionCounts[profile.id] || 0;
-              const isSubmitted = totalMatches > 0 && predCount === totalMatches;
+              const matchCount = matchPredictionCounts[profile.id] ?? 0;
+              const groupCount = groupPredictionCounts[profile.id] ?? 0;
+              const specialCount = specialPredictionCounts[profile.id] ?? 0;
+              
+              const isSubmitted = 
+                matchCount === TOTAL_MATCH_PREDICTIONS &&
+                groupCount === TOTAL_GROUP_PREDICTIONS &&
+                specialCount === TOTAL_SPECIAL_PREDICTIONS;
               
               // Apply highlight styling for current user
               let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-colors ";
@@ -390,11 +411,14 @@ export function Leaderboard() {
                           </span>
                         </span>
                         <span className="text-xs text-slate-400">
-                          {predCount} / {totalMatches}
+                          {matchCount} / {totalMatches || TOTAL_MATCH_PREDICTIONS}
                         </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-1">
-                        {lang === 'pt' ? 'Partidas' : 'Matches'}: — | {lang === 'pt' ? 'Grupos' : 'Groups'}: — | {lang === 'pt' ? 'Especiais' : 'Specials'}: —
+                        {lang === 'pt' 
+                          ? `Partidas: ${matchCount} / ${TOTAL_MATCH_PREDICTIONS} | Grupos: ${groupCount} / ${TOTAL_GROUP_PREDICTIONS} | Especiais: ${specialCount} / ${TOTAL_SPECIAL_PREDICTIONS}`
+                          : `Matches: ${matchCount} / ${TOTAL_MATCH_PREDICTIONS} | Groups: ${groupCount} / ${TOTAL_GROUP_PREDICTIONS} | Specials: ${specialCount} / ${TOTAL_SPECIAL_PREDICTIONS}`
+                        }
                       </div>
                     </div>
                   </div>
@@ -430,5 +454,6 @@ export function Leaderboard() {
     </div>
   );
 }
+
 
 
