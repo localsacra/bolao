@@ -61,6 +61,8 @@ export function Leaderboard() {
   const [profiles, setProfiles] = useState<Database['public']['Tables']['profiles']['Row'][]>([]);
   const [entrantIds, setEntrantIds] = useState<Set<string>>(new Set());
   const [hasResults, setHasResults] = useState(false);
+  const [predictionCounts, setPredictionCounts] = useState<Record<string, number>>({});
+  const [totalMatches, setTotalMatches] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [championPredictions, setChampionPredictions] = useState<Record<string, string>>({});
@@ -74,6 +76,7 @@ export function Leaderboard() {
         profilesRes,
         predsRes,
         groupPredsRes,
+        matchCountRes,
         matchesCheckRes
       ] = await Promise.all([
         supabase.from('player_scores').select('*, profiles(name)'),
@@ -81,6 +84,7 @@ export function Leaderboard() {
         supabase.from('profiles').select('*'),
         supabase.from('predictions').select('player_id'),
         supabase.from('group_predictions').select('player_id'),
+        supabase.from('matches').select('*', { count: 'exact', head: true }),
         supabase.from('matches').select('id').not('actual_score_a', 'is', null).limit(1)
       ]);
       
@@ -103,7 +107,14 @@ export function Leaderboard() {
         console.error('Error fetching group predictions:', groupPredsRes.error);
         return;
       }
+
+      if (matchCountRes.error) {
+        console.error('Error fetching match count:', matchCountRes.error);
+        return;
+      }
       
+      setTotalMatches(matchCountRes.count || 0);
+
       const resultsExist = matchesCheckRes.data && matchesCheckRes.data.length > 0;
       setHasResults(!!resultsExist);
 
@@ -117,7 +128,13 @@ export function Leaderboard() {
       }
 
       const activeEntrantIds = new Set<string>();
-      predsRes.data?.forEach(p => activeEntrantIds.add(p.player_id));
+      const predCounts: Record<string, number> = {};
+
+      predsRes.data?.forEach(p => {
+        activeEntrantIds.add(p.player_id);
+        predCounts[p.player_id] = (predCounts[p.player_id] || 0) + 1;
+      });
+
       groupPredsRes.data?.forEach(p => activeEntrantIds.add(p.player_id));
       
       if (specialRes.data) {
@@ -135,6 +152,7 @@ export function Leaderboard() {
       }
 
       setEntrantIds(activeEntrantIds);
+      setPredictionCounts(predCounts);
     } finally {
       setLoading(false);
     }
@@ -330,6 +348,8 @@ export function Leaderboard() {
           <div className="space-y-3">
             {activeEntrants.map((profile) => {
               const isCurrentUser = user?.id === profile.id;
+              const predCount = predictionCounts[profile.id] || 0;
+              const isSubmitted = totalMatches > 0 && predCount === totalMatches;
               
               // Apply highlight styling for current user
               let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-colors ";
@@ -348,7 +368,7 @@ export function Leaderboard() {
                     </div>
                     
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className={`font-semibold ${isCurrentUser ? 'text-emerald-400' : 'text-slate-200'}`}>
                           {profile.name || (lang === 'pt' ? 'Jogador Desconhecido' : 'Unknown Player')}
                         </span>
@@ -357,6 +377,21 @@ export function Leaderboard() {
                             {lang === 'pt' ? 'Você' : 'You'}
                           </span>
                         )}
+                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                          isSubmitted
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        }`}>
+                          <span>{isSubmitted ? '✅' : '⏳'}</span>
+                          <span>
+                            {isSubmitted
+                              ? (lang === 'pt' ? 'Enviado' : 'Submitted')
+                              : (lang === 'pt' ? 'Pendente' : 'Pending')}
+                          </span>
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {predCount} / {totalMatches}
+                        </span>
                       </div>
                       <div className="text-xs text-slate-400 mt-1">
                         {lang === 'pt' ? 'Partidas' : 'Matches'}: — | {lang === 'pt' ? 'Grupos' : 'Groups'}: — | {lang === 'pt' ? 'Especiais' : 'Specials'}: —
@@ -395,4 +430,5 @@ export function Leaderboard() {
     </div>
   );
 }
+
 
