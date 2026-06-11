@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
-import { ArrowLeft, CheckCircle, Trophy, Medal, Star, Award } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Star, Award } from 'lucide-react';
 import { 
   calculatePoints, 
   calculateGroupPositionPoints, 
@@ -28,6 +28,16 @@ export function PlayerPredictions() {
   const { user: currentUser } = useAuthStore();
   const { lang } = useLang();
   
+  const [viewMode, setViewMode] = useState<'group' | 'date'>(() => {
+    const stored = localStorage.getItem('predictions_view_mode');
+    return (stored === 'group' || stored === 'date') ? stored : 'group';
+  });
+
+  const handleViewModeChange = (mode: 'group' | 'date') => {
+    setViewMode(mode);
+    localStorage.setItem('predictions_view_mode', mode);
+  };
+
   const isLocked = useMemo(() => new Date() >= GROUP_STAGE_LOCK, []);
 
   // Redirect if accessed before lock
@@ -170,6 +180,13 @@ export function PlayerPredictions() {
     return Object.keys(groupStageMatchesByGroup).sort();
   }, [groupStageMatchesByGroup]);
 
+  // Chronological list of group stage matches
+  const sortedGroupStageMatches = useMemo(() => {
+    return [...matches]
+      .filter(m => m.phase === 'group')
+      .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
+  }, [matches]);
+
   if (!isLocked) {
     return null;
   }
@@ -218,6 +235,71 @@ export function PlayerPredictions() {
 
   const isCurrentUser = currentUser?.id === playerId;
 
+  function renderMatchCard(match: Match) {
+    const pred = predictions[match.id];
+    const hasPred = pred !== undefined;
+    const points = hasPred ? calculatePoints(match, pred) : 0;
+    
+    const scoreA = hasPred ? pred.predicted_score_a : null;
+    const scoreB = hasPred ? pred.predicted_score_b : null;
+
+    return (
+      <div key={match.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 relative flex flex-col justify-between hover:bg-slate-800 transition-colors">
+        
+        {/* Time and Saved Icon */}
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-[10px] font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
+            {formatMatchTime(match.match_date)}
+          </span>
+          {hasPred && (
+            <span className="text-xs text-slate-400">
+              {t(lang, 'predictions.saved')}
+            </span>
+          )}
+        </div>
+
+        {/* Flags and Predicted Scores */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          {/* Team A */}
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <FlagIcon country={match.team_a} size="sm" />
+            <span className="font-semibold text-xs text-center leading-tight text-slate-200">{match.team_a}</span>
+          </div>
+
+          {/* Prediction Inputs Style (Disabled) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-10 h-12 flex items-center justify-center bg-slate-900 border border-slate-700 rounded-lg text-lg font-bold text-white opacity-85">
+              {scoreA !== null ? scoreA : '—'}
+            </div>
+            <span className="text-slate-500 font-bold text-sm">X</span>
+            <div className="w-10 h-12 flex items-center justify-center bg-slate-900 border border-slate-700 rounded-lg text-lg font-bold text-white opacity-85">
+              {scoreB !== null ? scoreB : '—'}
+            </div>
+          </div>
+
+          {/* Team B */}
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <FlagIcon country={match.team_b} size="sm" />
+            <span className="font-semibold text-xs text-center leading-tight text-slate-200">{match.team_b}</span>
+          </div>
+        </div>
+
+        {/* Real Result & Score Badge */}
+        {match.actual_score_a !== null && match.actual_score_b !== null && (
+          <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex justify-between items-center text-xs">
+            <span className="text-slate-300">
+              {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} x {match.actual_score_b}</strong>
+            </span>
+            <span className="text-emerald-400 font-bold">
+              +{points} {t(lang, 'predictions.points')}
+            </span>
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-20 max-w-3xl mx-auto w-full p-4 space-y-8">
       
@@ -249,89 +331,56 @@ export function PlayerPredictions() {
 
       {/* SECTION 1: MATCH PREDICTIONS (Group Stage) */}
       <section className="space-y-6">
-        <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-          ⚽ {lang === 'pt' ? 'Palpites de Partidas (Fase de Grupos)' : 'Match Predictions (Group Stage)'}
-        </h2>
+        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+          <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
+            ⚽ {lang === 'pt' ? 'Palpites de Partidas (Fase de Grupos)' : 'Match Predictions (Group Stage)'}
+          </h2>
+          <div className="flex bg-slate-955 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
+            <button
+              onClick={() => handleViewModeChange('group')}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                viewMode === 'group'
+                  ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                  : 'hover:text-slate-205 hover:bg-slate-800/40'
+              }`}
+            >
+              {t(lang, 'predictions.viewByGroup')}
+            </button>
+            <button
+              onClick={() => handleViewModeChange('date')}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                viewMode === 'date'
+                  ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                  : 'hover:text-slate-205 hover:bg-slate-800/40'
+              }`}
+            >
+              {t(lang, 'predictions.viewByDate')}
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-8">
-          {sortedGroupNames.map(groupName => {
-            const groupMatches = groupStageMatchesByGroup[groupName] || [];
+          {viewMode === 'date' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sortedGroupStageMatches.map(match => renderMatchCard(match))}
+            </div>
+          ) : (
+            sortedGroupNames.map(groupName => {
+              const groupMatches = groupStageMatchesByGroup[groupName] || [];
 
-            return (
-              <div key={groupName} className="space-y-3">
-                <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
-                  {lang === 'pt' ? 'Grupo' : 'Group'} {groupName}
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {groupMatches.map(match => {
-                    const pred = predictions[match.id];
-                    const hasPred = pred !== undefined;
-                    const points = hasPred ? calculatePoints(match, pred) : 0;
-                    
-                    const scoreA = hasPred ? pred.predicted_score_a : null;
-                    const scoreB = hasPred ? pred.predicted_score_b : null;
-
-                    return (
-                      <div key={match.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 relative flex flex-col justify-between hover:bg-slate-800 transition-colors">
-                        
-                        {/* Time and Saved Icon */}
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="text-[10px] font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
-                            {formatMatchTime(match.match_date)}
-                          </span>
-                          {hasPred && (
-                            <span className="text-emerald-500" title={lang === 'pt' ? 'Palpite Salvo' : 'Prediction Saved'}>
-                              <CheckCircle className="w-4 h-4" />
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Flags and Predicted Scores */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          {/* Team A */}
-                          <div className="flex-1 flex flex-col items-center gap-1">
-                            <FlagIcon country={match.team_a} size="sm" />
-                            <span className="font-semibold text-xs text-center leading-tight text-slate-200">{match.team_a}</span>
-                          </div>
-
-                          {/* Prediction Inputs Style (Disabled) */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="w-10 h-12 flex items-center justify-center bg-slate-900 border border-slate-700 rounded-lg text-lg font-bold text-white opacity-85">
-                              {scoreA !== null ? scoreA : '—'}
-                            </div>
-                            <span className="text-slate-500 font-bold text-sm">X</span>
-                            <div className="w-10 h-12 flex items-center justify-center bg-slate-900 border border-slate-700 rounded-lg text-lg font-bold text-white opacity-85">
-                              {scoreB !== null ? scoreB : '—'}
-                            </div>
-                          </div>
-
-                          {/* Team B */}
-                          <div className="flex-1 flex flex-col items-center gap-1">
-                            <FlagIcon country={match.team_b} size="sm" />
-                            <span className="font-semibold text-xs text-center leading-tight text-slate-200">{match.team_b}</span>
-                          </div>
-                        </div>
-
-                        {/* Real Result & Score Badge */}
-                        {match.actual_score_a !== null && match.actual_score_b !== null && (
-                          <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex justify-between items-center text-xs">
-                            <span className="text-slate-300">
-                              {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} x {match.actual_score_b}</strong>
-                            </span>
-                            <span className="text-emerald-400 font-bold">
-                              +{points} {t(lang, 'predictions.points')}
-                            </span>
-                          </div>
-                        )}
-
-                      </div>
-                    );
-                  })}
+              return (
+                <div key={groupName} className="space-y-3">
+                  <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
+                    {lang === 'pt' ? 'Grupo' : 'Group'} {groupName}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {groupMatches.map(match => renderMatchCard(match))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </section>
 

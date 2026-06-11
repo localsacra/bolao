@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { CheckCircle, Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
+import { Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
@@ -51,7 +51,6 @@ export function Predictions() {
   const { user } = useAuthStore();
   const { lang } = useLang();
   const isSpecialLocked = new Date() >= GROUP_STAGE_LOCK;
-  const isGroupStageLocked = new Date() >= GROUP_STAGE_LOCK;
   const [matches, setMatches] = useState<Match[]>([]);
   const [localPredictions, setLocalPredictions] = useState<Record<number, Partial<Prediction>>>({});
   const [specialPreds, setSpecialPreds] = useState<Partial<SpecialPredictionRow>>({
@@ -561,7 +560,7 @@ export function Predictions() {
               <h2 className="text-xl font-bold text-emerald-400 capitalize">
                 {formatPhaseName(phase, lang)}
               </h2>
-              {phase === 'group' && !isGroupStageLocked && (
+              {phase === 'group' && (
                 <div className="flex bg-slate-950 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
                   <button
                     onClick={() => handleViewModeChange('group')}
@@ -730,7 +729,7 @@ export function Predictions() {
         {/* Save Status */}
         <div className="absolute top-4 right-4 flex items-center justify-end">
           {saveStatus[match.id] === 'saving' && <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />}
-          {saveStatus[match.id] === 'saved' && <CheckCircle className="w-5 h-5 text-emerald-500" />}
+          {saveStatus[match.id] === 'saved' && <span className="text-xs text-slate-400">{t(lang, 'predictions.saved')}</span>}
           {saveStatus[match.id] === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
         </div>
 
