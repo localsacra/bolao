@@ -146,19 +146,20 @@ export function Leaderboard() {
         setActualChampion(officialRow?.champion || null);
 
         const map: Record<string, string> = {};
-        specialRes.data.forEach(r => {
-          if (r.player_id !== '00000000-0000-0000-0000-000000000000') {
-            map[r.player_id] = r.champion;
+        for (const row of specialRes.data) {
+          if (row.player_id !== '00000000-0000-0000-0000-000000000000') {
+            map[row.player_id] = row.champion;
             
-            let count = 0;
-            if (r.champion) count++;
-            if (r.vice_champion) count++;
-            if (r.third_place) count++;
-            if (r.top_scorer) count++;
-            if (r.best_player) count++;
-            specialCounts[r.player_id] = count;
+            const filled = [
+              row.champion,
+              row.vice_champion,
+              row.third_place,
+              row.top_scorer,
+              row.best_player,
+            ].filter(v => v !== null && v !== '').length;
+            specialCounts[row.player_id] = filled;
           }
-        });
+        }
         setChampionPredictions(map);
       }
 
