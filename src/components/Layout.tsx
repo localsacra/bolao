@@ -11,7 +11,9 @@ export function Layout() {
   const location = useLocation();
   const { lang } = useLang();
 
-  const isProtectedRoute = ['/predictions', '/leaderboard', '/profile', '/admin'].includes(location.pathname);
+  const isProtectedRoute = 
+    ['/predictions', '/leaderboard', '/profile', '/admin'].includes(location.pathname) ||
+    location.pathname.startsWith('/player/');
 
   if (isLoading) {
     return (

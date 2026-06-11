@@ -56,6 +56,8 @@ export const pt = {
     of8Selected: "de 8 selecionados",
     thirdQualifiersDescription: "Selecione quais 8 seleções que terminarem em 3º lugar nos seus respectivos grupos avançarão para a fase de mata-mata.",
     limitWarning: "Você já atingiu o limite de 8 terceiros colocados. Desmarque algum antes de selecionar outro.",
+    viewByGroup: "Por Grupo",
+    viewByDate: "Por Data",
   },
 
   // Leaderboard

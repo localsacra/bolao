@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Predictions } from './pages/Predictions';
 import { Leaderboard } from './pages/Leaderboard';
+import { PlayerPredictions } from './pages/PlayerPredictions';
 import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { useAuthStore } from './store/useAuthStore';
@@ -25,6 +26,7 @@ function App() {
             <Route path="login" element={<Login />} />
             <Route path="predictions" element={<Predictions />} />
             <Route path="leaderboard" element={<Leaderboard />} />
+            <Route path="player/:playerId" element={<PlayerPredictions />} />
             <Route path="admin" element={<Admin />} />
             <Route path="profile" element={<Profile />} />
           </Route>

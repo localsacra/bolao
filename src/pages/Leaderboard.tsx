@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
@@ -61,8 +62,10 @@ function CountdownSubtitle({ lockTime, updatedAt }: CountdownSubtitleProps) {
 }
 
 export function Leaderboard() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { lang } = useLang();
+  const isLocked = new Date() >= GROUP_STAGE_LOCK;
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [profiles, setProfiles] = useState<Database['public']['Tables']['profiles']['Row'][]>([]);
   const [hasResults, setHasResults] = useState(false);
@@ -398,12 +401,24 @@ export function Leaderboard() {
               const isCurrentUser = user?.id === item.player_id;
               
               // Apply top 3 styles and highlight
-              let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-colors ";
+              let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-all ";
               
+              if (isLocked) {
+                containerClasses += "cursor-pointer ";
+              } else {
+                containerClasses += "cursor-default ";
+              }
+
               if (isCurrentUser) {
                 containerClasses += "border-l-4 border-l-emerald-500 border-t-emerald-500/20 border-r-emerald-500/20 border-b-emerald-500/20 bg-slate-800 shadow-md ";
+                if (isLocked) {
+                  containerClasses += "hover:bg-slate-850 ";
+                }
               } else {
-                containerClasses += "border-slate-700 bg-slate-800/50 hover:bg-slate-800/70 ";
+                containerClasses += "border-slate-700 bg-slate-800/50 ";
+                if (isLocked) {
+                  containerClasses += "hover:bg-slate-800/70 ";
+                }
               }
 
               if (item.rank === 1) containerClasses += "bg-gradient-to-r from-yellow-500/10 to-transparent ";
@@ -411,7 +426,15 @@ export function Leaderboard() {
               else if (item.rank === 3) containerClasses += "bg-gradient-to-r from-orange-600/10 to-transparent ";
 
               return (
-                <div key={item.player_id} className={containerClasses}>
+                <div 
+                  key={item.player_id} 
+                  className={containerClasses}
+                  onClick={() => {
+                    if (isLocked) {
+                      navigate(`/player/${item.player_id}`);
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-4 flex-1">
                     <div className={`flex items-center justify-center font-bold w-10 h-10 rounded-full shrink-0 ${
                       item.rank === 1 ? 'bg-yellow-500/20 text-yellow-500 text-xl' :
@@ -468,16 +491,36 @@ export function Leaderboard() {
                 specialCount === TOTAL_SPECIAL_PREDICTIONS;
               
               // Apply highlight styling for current user
-              let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-colors ";
+              let containerClasses = "relative flex items-center justify-between p-4 rounded-xl border transition-all ";
               
+              if (isLocked) {
+                containerClasses += "cursor-pointer ";
+              } else {
+                containerClasses += "cursor-default ";
+              }
+
               if (isCurrentUser) {
                 containerClasses += "border-l-4 border-l-emerald-500 border-t-emerald-500/20 border-r-emerald-500/20 border-b-emerald-500/20 bg-slate-800 shadow-md ";
+                if (isLocked) {
+                  containerClasses += "hover:bg-slate-855 ";
+                }
               } else {
-                containerClasses += "border-slate-700 bg-slate-800/50 hover:bg-slate-800/70 ";
+                containerClasses += "border-slate-700 bg-slate-800/50 ";
+                if (isLocked) {
+                  containerClasses += "hover:bg-slate-800/70 ";
+                }
               }
 
               return (
-                <div key={profile.id} className={containerClasses}>
+                <div 
+                  key={profile.id} 
+                  className={containerClasses}
+                  onClick={() => {
+                    if (isLocked) {
+                      navigate(`/player/${profile.id}`);
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-4 flex-1">
                     <div className="flex items-center justify-center font-bold w-10 h-10 rounded-full shrink-0 bg-slate-800 border border-slate-700/50 text-slate-400 text-base">
                       —

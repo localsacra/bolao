@@ -52,6 +52,8 @@ export const en = {
     of8Selected: "of 8 selected",
     thirdQualifiersDescription: "Select which 8 teams that finish in 3rd place in their respective groups will advance to the knockout stage.",
     limitWarning: "You have already reached the limit of 8 third-place qualifiers. Deselect one before selecting another.",
+    viewByGroup: "By Group",
+    viewByDate: "By Date",
   },
 
   leaderboard: {
