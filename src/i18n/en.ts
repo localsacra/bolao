@@ -93,6 +93,8 @@ export const en = {
     playerRole: "Role",
     admin: "Admin",
     user: "User",
+    exportPredictions: "Export Predictions",
+    downloadCsv: "⬇ Download CSV",
   },
 
   scoring: {

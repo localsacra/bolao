@@ -63,6 +63,7 @@ export function Admin() {
   // Tab 3 state
   const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingPredictions, setExportingPredictions] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -242,6 +243,294 @@ export function Admin() {
       console.error(e);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportPredictions = async () => {
+    setExportingPredictions(true);
+    try {
+      const fetchAllPredictions = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('predictions')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllGroupPredictions = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('group_predictions')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllSpecialPredictions = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('special_predictions')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllProfiles = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllMatches = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('matches')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const [
+        predsData,
+        groupPredsData,
+        specialPredsData,
+        profilesData,
+        matchesData
+      ] = await Promise.all([
+        fetchAllPredictions(),
+        fetchAllGroupPredictions(),
+        fetchAllSpecialPredictions(),
+        fetchAllProfiles(),
+        fetchAllMatches()
+      ]);
+
+      // Determine active players (exclude admin UUID '00000000-0000-0000-0000-000000000000')
+      const activePlayerIds = new Set<string>();
+      predsData.forEach(p => {
+        if (p.player_id) activePlayerIds.add(p.player_id);
+      });
+      groupPredsData.forEach(g => {
+        if (g.player_id) activePlayerIds.add(g.player_id);
+      });
+      specialPredsData.forEach(s => {
+        if (s.player_id) activePlayerIds.add(s.player_id);
+      });
+      activePlayerIds.delete('00000000-0000-0000-0000-000000000000');
+
+      // Create maps for lookup
+      const profileMap = new Map<string, string>();
+      profilesData.forEach(p => {
+        profileMap.set(p.id, p.name || 'Unknown Player');
+      });
+
+      const activePlayers = Array.from(activePlayerIds).map(id => ({
+        id,
+        name: profileMap.get(id) || 'Unknown Player'
+      }));
+
+      // Sort players alphabetically by name (A-Z)
+      activePlayers.sort((a, b) => a.name.localeCompare(b.name, lang));
+
+      // Sort matches by date ASC
+      const sortedMatches = [...matchesData].sort(
+        (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+      );
+
+      // Map predictions
+      const matchPredictionsMap = new Map<string, any>();
+      predsData.forEach(p => {
+        matchPredictionsMap.set(`${p.player_id}_${p.match_id}`, p);
+      });
+
+      const groupPredictionsMap = new Map<string, any>();
+      groupPredsData.forEach(g => {
+        groupPredictionsMap.set(`${g.player_id}_${g.group_name}`, g);
+      });
+
+      const specialPredictionsMap = new Map<string, any>();
+      specialPredsData.forEach(s => {
+        specialPredictionsMap.set(s.player_id, s);
+      });
+
+      // Escape helper
+      const escapeCSV = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val).trim();
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvParts: string[] = [];
+
+      // SECTION 1: Match Predictions
+      csvParts.push("=== MATCH PREDICTIONS ===");
+      csvParts.push("Player, Group, Match, Home Team, Away Team, Predicted Home, Predicted Away");
+      activePlayers.forEach(player => {
+        sortedMatches.forEach(match => {
+          const pred = matchPredictionsMap.get(`${player.id}_${match.id}`);
+          const row = [
+            escapeCSV(player.name),
+            escapeCSV(match.group_name),
+            escapeCSV(match.id),
+            escapeCSV(match.team_a),
+            escapeCSV(match.team_b),
+            pred ? escapeCSV(pred.predicted_score_a) : '',
+            pred ? escapeCSV(pred.predicted_score_b) : ''
+          ];
+          csvParts.push(row.join(', '));
+        });
+      });
+
+      // Separator
+      csvParts.push("");
+
+      // SECTION 2: Group Predictions
+      csvParts.push("=== GROUP PREDICTIONS ===");
+      csvParts.push("Player, Group, Predicted Winner");
+      const GROUP_NAMES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+      activePlayers.forEach(player => {
+        GROUP_NAMES.forEach(gName => {
+          const gPred = groupPredictionsMap.get(`${player.id}_${gName}`);
+          const row = [
+            escapeCSV(player.name),
+            escapeCSV(gName),
+            gPred ? escapeCSV(gPred.position_1) : ''
+          ];
+          csvParts.push(row.join(', '));
+        });
+      });
+
+      // Separator
+      csvParts.push("");
+
+      // SECTION 3: Special Predictions
+      csvParts.push("=== SPECIAL PREDICTIONS ===");
+      csvParts.push("Player, Champion, Runner-up, 3rd Place, Top Scorer, Best Player");
+      activePlayers.forEach(player => {
+        const sPred = specialPredictionsMap.get(player.id);
+        const row = [
+          escapeCSV(player.name),
+          sPred ? escapeCSV(sPred.champion) : '',
+          sPred ? escapeCSV(sPred.vice_champion) : '',
+          sPred ? escapeCSV(sPred.third_place) : '',
+          sPred ? escapeCSV(sPred.top_scorer) : '',
+          sPred ? escapeCSV(sPred.best_player) : ''
+        ];
+        csvParts.push(row.join(', '));
+      });
+
+      const csvContent = csvParts.join('\n');
+
+      // Trigger download
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const filename = `predictions-export-${year}-${month}-${day}.csv`;
+
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast(
+        lang === 'pt' ? 'Palpites exportados com sucesso!' : 'Predictions exported successfully!',
+        'success'
+      );
+    } catch (e) {
+      showToast(
+        lang === 'pt' ? 'Erro ao exportar palpites.' : 'Error exporting predictions.',
+        'error'
+      );
+      console.error(e);
+    } finally {
+      setExportingPredictions(false);
     }
   };
 
@@ -547,6 +836,41 @@ export function Admin() {
         {activeTab === 'resultados' && renderResultados()}
         {activeTab === 'partidas' && renderPartidas()}
         {activeTab === 'jogadores' && renderJogadores()}
+      </div>
+
+      {/* Export Predictions Section */}
+      <div className="p-4 border-t border-slate-800 mt-4">
+        <h2 className="text-xl font-bold text-slate-200 mb-3">
+          {t(lang, 'admin.exportPredictions')}
+        </h2>
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-slate-300">
+              {lang === 'pt' ? 'Exportar todos os palpites dos jogadores ativos' : 'Export all active players\' predictions'}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {lang === 'pt' 
+                ? 'Gera um arquivo CSV contendo os palpites de jogos, grupos e palpites especiais de todos os participantes.' 
+                : 'Generates a CSV file containing match, group, and special predictions for all participants.'}
+            </p>
+          </div>
+          <button
+            onClick={exportPredictions}
+            disabled={exportingPredictions}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            {exportingPredictions ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>{lang === 'pt' ? 'Carregando...' : 'Loading...'}</span>
+              </>
+            ) : (
+              <>
+                <span>{t(lang, 'admin.downloadCsv')}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Modal Nova Partida */}

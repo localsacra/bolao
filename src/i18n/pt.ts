@@ -100,6 +100,8 @@ export const pt = {
     playerRole: "Função",
     admin: "Admin",
     user: "Usuário",
+    exportPredictions: "Exportar Palpites",
+    downloadCsv: "⬇ Baixar CSV",
   },
 
   // Scoring rules
