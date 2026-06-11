@@ -81,6 +81,16 @@ export function calculateThirdPlaceQualifierPoints(
   return points;
 }
 
+export function normalizeSpecialPrediction(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents/diacritics
+    .replace(/[^a-z0-9]/g, '');      // Remove all non-alphanumeric characters
+}
+
 export function calculateSpecialPoints(
   prediction: {
     champion: string;
@@ -98,16 +108,16 @@ export function calculateSpecialPoints(
   }
 ): number {
   let points = 0;
-  if (prediction.champion === actual.champion) points += 25;
+  if (normalizeSpecialPrediction(prediction.champion) === normalizeSpecialPrediction(actual.champion)) points += 25;
   if (prediction.vice_champion && 
-      prediction.vice_champion === actual.vice_champion) 
+      normalizeSpecialPrediction(prediction.vice_champion) === normalizeSpecialPrediction(actual.vice_champion)) 
     points += 10;
   if (prediction.third_place && 
-      prediction.third_place === actual.third_place) 
+      normalizeSpecialPrediction(prediction.third_place) === normalizeSpecialPrediction(actual.third_place)) 
     points += 10;
-  if (prediction.top_scorer === actual.top_scorer) 
+  if (normalizeSpecialPrediction(prediction.top_scorer) === normalizeSpecialPrediction(actual.top_scorer)) 
     points += 15;
-  if (prediction.best_player === actual.best_player) 
+  if (normalizeSpecialPrediction(prediction.best_player) === normalizeSpecialPrediction(actual.best_player)) 
     points += 15;
   return points;
 }
