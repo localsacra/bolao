@@ -1,5 +1,5 @@
-// Lock time: Extended by 40 minutes (2026-06-11T17:50:00Z UTC)
-export const GROUP_STAGE_LOCK = new Date('2026-06-11T17:50:00Z');
+// Lock time: Updated to 2026-06-11T18:35:00Z
+export const GROUP_STAGE_LOCK = new Date('2026-06-11T18:35:00Z');
 
 
 export const TOTAL_MATCH_PREDICTIONS = 72;

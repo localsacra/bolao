@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle, Trophy, Medal, Star, Award } from 'lucide-react
 import { 
   calculatePoints, 
   calculateGroupPositionPoints, 
+  calculateThirdPlaceQualifierPoints,
   normalizeSpecialPrediction 
 } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
@@ -133,6 +134,12 @@ export function PlayerPredictions() {
     );
     return allThirdPlaces.filter(t => knockoutTeams.has(t));
   }, [actualStandings, matches]);
+
+  const thirdPlacePicks = useMemo(() => {
+    return Object.values(groupPredictions)
+      .map(gp => gp.position_3)
+      .filter(t => t && t !== '');
+  }, [groupPredictions]);
 
   // Group stage matches only, grouped A -> L
   const groupStageMatchesByGroup = useMemo(() => {
@@ -420,6 +427,54 @@ export function PlayerPredictions() {
               </div>
             );
           })}
+        </div>
+
+        {/* 3rd Place Advancing Teams Predictions */}
+        <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+            <h3 className="text-md font-bold text-slate-200 flex items-center gap-2">
+              🏆 {t(lang, 'predictions.thirdQualifiers')}
+            </h3>
+            {actualThirdPlacesAdvanced.length > 0 && (
+              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
+                +{calculateThirdPlaceQualifierPoints(thirdPlacePicks, actualThirdPlacesAdvanced)} {t(lang, 'predictions.points')}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {sortedGroupNames.map(gName => {
+              const pred = groupPredictions[gName];
+              const pick = pred?.position_3 || null;
+              const isCorrect = pick && actualThirdPlacesAdvanced.includes(pick);
+              const showResultStatus = actualThirdPlacesAdvanced.length > 0;
+
+              return (
+                <div key={gName} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex flex-col justify-between min-h-[90px]">
+                  <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-2">
+                    {lang === 'pt' ? 'Grupo' : 'Group'} {gName}
+                  </div>
+                  {pick ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FlagIcon country={pick} size="sm" />
+                        <span className="text-white text-xs font-semibold">{pick}</span>
+                      </div>
+                      {showResultStatus && (
+                        isCorrect ? (
+                          <span className="text-emerald-400 text-[10px] font-bold">✓ +15 pts</span>
+                        ) : (
+                          <span className="text-red-400 text-[10px] font-bold">✗ 0 pts</span>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-500 text-xs italic">{lang === 'pt' ? 'Não selecionado' : 'Not selected'}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
