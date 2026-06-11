@@ -27,7 +27,7 @@ export function Profile() {
       try {
         const [scoresRes, allScoresRes, specialRes] = await Promise.all([
           supabase.from('player_scores').select('*').eq('player_id', user.id).maybeSingle(),
-          supabase.from('player_scores').select('player_id, total_points').order('total_points', { ascending: false }),
+          supabase.from('player_scores').select('player_id, total_points').order('total_points', { ascending: false }).limit(10000),
           supabase.from('special_predictions').select('*').eq('player_id', user.id).maybeSingle()
         ]);
 

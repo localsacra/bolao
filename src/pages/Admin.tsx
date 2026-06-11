@@ -74,7 +74,7 @@ export function Admin() {
       setLoading(true);
       const [{ data: matchesData }, { data: profilesData }] = await Promise.all([
         supabase.from('matches').select('*').order('match_date', { ascending: true }),
-        supabase.from('profiles').select('*').order('name', { ascending: true })
+        supabase.from('profiles').select('*').order('name', { ascending: true }).limit(10000)
       ]);
 
       if (matchesData) setMatches(matchesData);
@@ -222,7 +222,8 @@ export function Admin() {
           total_points,
           profiles ( name )
         `)
-        .order('total_points', { ascending: false });
+        .order('total_points', { ascending: false })
+        .limit(10000);
 
       if (error) throw error;
       if (!data) throw new Error("No data");

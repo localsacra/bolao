@@ -1,0 +1,96 @@
+🟡 GROUP A — Mexico, South Korea, South Africa, Czechia
+Date	BRT	Match	Venue
+Thu, Jun 11	16:00	Mexico vs South Africa	Estadio Azteca, Mexico City
+Thu, Jun 11	23:00	South Korea vs Czechia	Estadio Akron, Guadalajara
+Thu, Jun 18	13:00	Czechia vs South Africa	Mercedes-Benz Stadium, Atlanta
+Thu, Jun 18	22:00	Mexico vs South Korea	Estadio Akron, Guadalajara
+Wed, Jun 24	22:00	Czechia vs Mexico	Estadio Azteca, Mexico City
+Wed, Jun 24	22:00	South Africa vs South Korea	Estadio BBVA, Monterrey
+🔴 GROUP B — Canada, Bosnia & Herzegovina, Qatar, Switzerland
+Date	BRT	Match	Venue
+Fri, Jun 12	16:00	Canada vs Bosnia & Herzegovina	BMO Field, Toronto
+Sat, Jun 13	16:00	Qatar vs Switzerland	Levi's Stadium, San Francisco
+Thu, Jun 18	16:00	Switzerland vs Bosnia & Herzegovina	SoFi Stadium, Los Angeles
+Thu, Jun 18	19:00	Canada vs Qatar	BC Place, Vancouver
+Wed, Jun 24	16:00	Switzerland vs Canada	BC Place, Vancouver
+Wed, Jun 24	16:00	Bosnia & Herzegovina vs Qatar	Lumen Field, Seattle
+🟢 GROUP C — 🇧🇷 Brazil, Morocco, Scotland, Haiti
+Date	BRT	Match	Venue
+Sat, Jun 13	19:00	🇧🇷 Brazil vs Morocco	MetLife Stadium, New York/NJ
+Sat, Jun 13	22:00	Haiti vs Scotland	Gillette Stadium, Boston
+Fri, Jun 19	19:00	Scotland vs Morocco	Gillette Stadium, Boston
+Fri, Jun 19	22:00	🇧🇷 Brazil vs Haiti	Gillette Stadium, Boston
+Wed, Jun 24	19:00	🇧🇷 Scotland vs Brazil	Hard Rock Stadium, Miami
+Wed, Jun 24	19:00	Morocco vs Haiti	Mercedes-Benz Stadium, Atlanta
+🔵 GROUP D — USA, Australia, Paraguay, Türkiye
+Date	BRT	Match	Venue
+Fri, Jun 12	22:00	USA vs Paraguay	SoFi Stadium, Los Angeles
+Sat, Jun 13	01:00	Australia vs Türkiye	BC Place, Vancouver
+Fri, Jun 19	16:00	USA vs Australia	Lumen Field, Seattle
+Sat, Jun 20	01:00	Türkiye vs Paraguay	Levi's Stadium, San Francisco
+Thu, Jun 25	23:00	Türkiye vs USA	SoFi Stadium, Los Angeles
+Thu, Jun 25	23:00	Paraguay vs Australia	Levi's Stadium, San Francisco
+⚫ GROUP E — Germany, Ecuador, Ivory Coast, Curaçao
+Date	BRT	Match	Venue
+Sun, Jun 14	14:00	Germany vs Curaçao	NRG Stadium, Houston
+Sun, Jun 14	20:00	Ivory Coast vs Ecuador	Lincoln Financial Field, Philadelphia
+Sat, Jun 20	17:00	Germany vs Ivory Coast	BMO Field, Toronto
+Sat, Jun 20	21:00	Ecuador vs Curaçao	Arrowhead Stadium, Kansas City
+Thu, Jun 25	17:00	Ecuador vs Germany	MetLife Stadium, New York/NJ
+Thu, Jun 25	17:00	Curaçao vs Ivory Coast	Lincoln Financial Field, Philadelphia
+🟠 GROUP F — Netherlands, Japan, Sweden, Tunisia
+Date	BRT	Match	Venue
+Sun, Jun 14	17:00	Netherlands vs Japan	AT&T Stadium, Dallas
+Sun, Jun 14	23:00	Sweden vs Tunisia	Estadio BBVA, Monterrey
+Sat, Jun 20	14:00	Netherlands vs Sweden	NRG Stadium, Houston
+Sat, Jun 20	01:00	Tunisia vs Japan	Estadio BBVA, Monterrey
+Thu, Jun 25	20:00	Tunisia vs Netherlands	AT&T Stadium, Dallas
+Thu, Jun 25	20:00	Japan vs Sweden	Arrowhead Stadium, Kansas City
+🟣 GROUP G — Belgium, Iran, Egypt, New Zealand
+Date	BRT	Match	Venue
+Mon, Jun 15	16:00	Belgium vs Egypt	SoFi Stadium, Los Angeles
+Mon, Jun 15	22:00	Iran vs New Zealand	Lumen Field, Seattle
+Sun, Jun 21	16:00	Belgium vs Iran	SoFi Stadium, Los Angeles
+Sun, Jun 21	22:00	New Zealand vs Egypt	BC Place, Vancouver
+Fri, Jun 26	21:00	New Zealand vs Belgium	Lumen Field, Seattle
+Fri, Jun 26	21:00	Egypt vs Iran	BC Place, Vancouver
+🔴 GROUP H — Spain, Uruguay, Saudi Arabia, Cape Verde
+Date	BRT	Match	Venue
+Mon, Jun 15	13:00	Spain vs Cape Verde	Mercedes-Benz Stadium, Atlanta
+Mon, Jun 15	19:00	Saudi Arabia vs Uruguay	Hard Rock Stadium, Miami
+Sun, Jun 21	13:00	Spain vs Saudi Arabia	Mercedes-Benz Stadium, Atlanta
+Sun, Jun 21	19:00	Uruguay vs Cape Verde	Hard Rock Stadium, Miami
+Fri, Jun 26	21:00	Uruguay vs Spain	NRG Stadium, Houston
+Fri, Jun 26	21:00	Cape Verde vs Saudi Arabia	Estadio Akron, Guadalajara
+🔵 GROUP I — France, Senegal, Iraq, Norway
+Date	BRT	Match	Venue
+Tue, Jun 16	16:00	France vs Senegal	MetLife Stadium, New York/NJ
+Tue, Jun 16	19:00	Iraq vs Norway	Gillette Stadium, Boston
+Mon, Jun 22	18:00	France vs Iraq	Lincoln Financial Field, Philadelphia
+Mon, Jun 22	21:00	Norway vs Senegal	MetLife Stadium, New York/NJ
+Fri, Jun 26	16:00	Norway vs France	Gillette Stadium, Boston
+Fri, Jun 26	16:00	Senegal vs Iraq	BMO Field, Toronto
+🟡 GROUP J — Argentina, Algeria, Austria, Jordan
+Date	BRT	Match	Venue
+Tue, Jun 16	22:00	Argentina vs Algeria	Arrowhead Stadium, Kansas City
+Wed, Jun 17	01:00	Austria vs Jordan	Levi's Stadium, San Francisco
+Mon, Jun 22	14:00	Argentina vs Austria	AT&T Stadium, Dallas
+Tue, Jun 23	00:00	Jordan vs Algeria	Levi's Stadium, San Francisco
+Sat, Jun 27	23:00	Jordan vs Argentina	Arrowhead Stadium, Kansas City
+Sat, Jun 27	23:00	Algeria vs Austria	AT&T Stadium, Dallas
+🟢 GROUP K — Portugal, Colombia, Uzbekistan, DR Congo
+Date	BRT	Match	Venue
+Wed, Jun 17	14:00	Portugal vs DR Congo	NRG Stadium, Houston
+Wed, Jun 17	23:00	Uzbekistan vs Colombia	Estadio Azteca, Mexico City
+Tue, Jun 23	14:00	Portugal vs Uzbekistan	NRG Stadium, Houston
+Tue, Jun 23	23:00	Colombia vs DR Congo	Estadio Akron, Guadalajara
+Sat, Jun 27	20:30	Colombia vs Portugal	Hard Rock Stadium, Miami
+Sat, Jun 27	20:30	DR Congo vs Uzbekistan	Mercedes-Benz Stadium, Atlanta
+⚪ GROUP L — England, Croatia, Ghana, Panama
+Date	BRT	Match	Venue
+Wed, Jun 17	17:00	England vs Croatia	AT&T Stadium, Dallas
+Wed, Jun 17	20:00	Ghana vs Panama	BMO Field, Toronto
+Tue, Jun 23	17:00	England vs Ghana	Gillette Stadium, Boston
+Tue, Jun 23	20:00	Panama vs Croatia	BMO Field, Toronto
+Sat, Jun 27	18:00	Panama vs England	MetLife Stadium, New York/NJ
+Sat, Jun 27	18:00	Croatia vs Ghana	Lincoln Financial Field, Philadelphia

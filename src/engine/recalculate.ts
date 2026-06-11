@@ -11,9 +11,9 @@ export const recalculateScores = async (matchId: number) => {
     { data: profiles }
   ] = await Promise.all([
     supabase.from('matches').select('*').not('actual_score_a', 'is', null),
-    supabase.from('predictions').select('*'),
-    supabase.from('player_scores').select('*'),
-    supabase.from('profiles').select('id')
+    supabase.from('predictions').select('*').limit(50000),
+    supabase.from('player_scores').select('*').limit(10000),
+    supabase.from('profiles').select('id').limit(10000)
   ]);
 
   if (!allMatches || !allPredictions || !profiles) {

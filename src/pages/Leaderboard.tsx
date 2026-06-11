@@ -84,11 +84,11 @@ export function Leaderboard() {
         matchCountRes,
         matchesCheckRes
       ] = await Promise.all([
-        supabase.from('player_scores').select('*, profiles(name)'),
-        supabase.from('special_predictions').select('*'),
-        supabase.from('profiles').select('*'),
-        supabase.from('predictions').select('player_id'),
-        supabase.from('group_predictions').select('player_id'),
+        supabase.from('player_scores').select('*, profiles(name)').limit(10000),
+        supabase.from('special_predictions').select('*').limit(10000),
+        supabase.from('profiles').select('*').limit(10000),
+        supabase.from('predictions').select('player_id').limit(10000),
+        supabase.from('group_predictions').select('player_id').limit(10000),
         supabase.from('matches').select('*', { count: 'exact', head: true }),
         supabase.from('matches').select('id').not('actual_score_a', 'is', null).limit(1)
       ]);
