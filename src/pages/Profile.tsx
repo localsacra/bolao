@@ -25,9 +25,34 @@ export function Profile() {
     const fetchProfileData = async () => {
       setLoading(true);
       try {
-        const [scoresRes, allScoresRes, specialRes] = await Promise.all([
+        const fetchAllScoresForRanking = async () => {
+          let allData: any[] = [];
+          let from = 0;
+          let hasMore = true;
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from('player_scores')
+              .select('player_id, total_points')
+              .order('total_points', { ascending: false })
+              .range(from, from + 999);
+            if (error) throw error;
+            if (data && data.length > 0) {
+              allData = [...allData, ...data];
+              if (data.length < 1000) {
+                hasMore = false;
+              } else {
+                from += 1000;
+              }
+            } else {
+              hasMore = false;
+            }
+          }
+          return allData;
+        };
+
+        const [scoresRes, allScoresData, specialRes] = await Promise.all([
           supabase.from('player_scores').select('*').eq('player_id', user.id).maybeSingle(),
-          supabase.from('player_scores').select('player_id, total_points').order('total_points', { ascending: false }).limit(10000),
+          fetchAllScoresForRanking(),
           supabase.from('special_predictions').select('*').eq('player_id', user.id).maybeSingle()
         ]);
 
@@ -35,8 +60,8 @@ export function Profile() {
           setStats(scoresRes.data);
         }
 
-        if (allScoresRes.data) {
-          const index = allScoresRes.data.findIndex(s => s.player_id === user.id);
+        if (allScoresData) {
+          const index = allScoresData.findIndex(s => s.player_id === user.id);
           if (index !== -1) {
             setRanking(index + 1);
           }

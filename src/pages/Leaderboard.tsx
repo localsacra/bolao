@@ -75,44 +75,144 @@ export function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     try {
+      const fetchAllPredictions = async () => {
+        let allData: { player_id: string }[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('predictions')
+            .select('player_id')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllGroupPredictions = async () => {
+        let allData: { player_id: string }[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('group_predictions')
+            .select('player_id')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllPlayerScores = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('player_scores')
+            .select('*, profiles(name)')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllSpecialPredictions = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('special_predictions')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllProfiles = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
       const [
-        scoresRes,
-        specialRes,
-        profilesRes,
-        predsRes,
-        groupPredsRes,
+        scoresData,
+        specialData,
+        profilesData,
+        predsData,
+        groupPredsData,
         matchCountRes,
         matchesCheckRes
       ] = await Promise.all([
-        supabase.from('player_scores').select('*, profiles(name)').limit(10000),
-        supabase.from('special_predictions').select('*').limit(10000),
-        supabase.from('profiles').select('*').limit(10000),
-        supabase.from('predictions').select('player_id').limit(10000),
-        supabase.from('group_predictions').select('player_id').limit(10000),
+        fetchAllPlayerScores(),
+        fetchAllSpecialPredictions(),
+        fetchAllProfiles(),
+        fetchAllPredictions(),
+        fetchAllGroupPredictions(),
         supabase.from('matches').select('*', { count: 'exact', head: true }),
         supabase.from('matches').select('id').not('actual_score_a', 'is', null).limit(1)
       ]);
       
-      if (scoresRes.error) {
-        console.error('Error fetching leaderboard scores:', scoresRes.error);
-        return;
-      }
-
-      if (profilesRes.error) {
-        console.error('Error fetching profiles:', profilesRes.error);
-        return;
-      }
-
-      if (predsRes.error) {
-        console.error('Error fetching predictions:', predsRes.error);
-        return;
-      }
-
-      if (groupPredsRes.error) {
-        console.error('Error fetching group predictions:', groupPredsRes.error);
-        return;
-      }
-
       if (matchCountRes.error) {
         console.error('Error fetching match count:', matchCountRes.error);
         return;
@@ -121,51 +221,47 @@ export function Leaderboard() {
       const resultsExist = matchesCheckRes.data && matchesCheckRes.data.length > 0;
       setHasResults(!!resultsExist);
 
-      if (scoresRes.data) {
-        setScores(scoresRes.data as PlayerScore[]);
-        setLastUpdated(formatMatchTime(new Date().toISOString()));
-      }
+      setScores(scoresData as PlayerScore[]);
+      setLastUpdated(formatMatchTime(new Date().toISOString()));
 
-      if (profilesRes.data) {
-        setProfiles(profilesRes.data);
-      }
+      setProfiles(profilesData);
 
       const matchCounts: Record<string, number> = {};
-      predsRes.data?.forEach(p => {
+      predsData.forEach(p => {
         matchCounts[p.player_id] = (matchCounts[p.player_id] || 0) + 1;
       });
 
       const groupCounts: Record<string, number> = {};
-      groupPredsRes.data?.forEach(p => {
+      groupPredsData.forEach(p => {
         groupCounts[p.player_id] = (groupCounts[p.player_id] || 0) + 1;
       });
 
       const specialCounts: Record<string, number> = {};
-      if (specialRes.data) {
-        const officialRow = specialRes.data.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
-        setActualChampion(officialRow?.champion || null);
+      const officialRow = specialData.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
+      setActualChampion(officialRow?.champion || null);
 
-        const map: Record<string, string> = {};
-        for (const row of specialRes.data) {
-          if (row.player_id !== '00000000-0000-0000-0000-000000000000') {
-            map[row.player_id] = row.champion;
-            
-            const filled = [
-              row.champion,
-              row.vice_champion,
-              row.third_place,
-              row.top_scorer,
-              row.best_player,
-            ].filter(v => v !== null && v !== '').length;
-            specialCounts[row.player_id] = filled;
-          }
+      const map: Record<string, string> = {};
+      for (const row of specialData) {
+        if (row.player_id !== '00000000-0000-0000-0000-000000000000') {
+          map[row.player_id] = row.champion;
+          
+          const filled = [
+            row.champion,
+            row.vice_champion,
+            row.third_place,
+            row.top_scorer,
+            row.best_player,
+          ].filter(v => v !== null && v !== '').length;
+          specialCounts[row.player_id] = filled;
         }
-        setChampionPredictions(map);
       }
+      setChampionPredictions(map);
 
       setMatchPredictionCounts(matchCounts);
       setGroupPredictionCounts(groupCounts);
       setSpecialPredictionCounts(specialCounts);
+    } catch (err) {
+      console.error('Error fetching leaderboard data:', err);
     } finally {
       setLoading(false);
     }
