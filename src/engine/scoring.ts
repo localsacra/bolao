@@ -74,9 +74,9 @@ export function calculateThirdPlaceQualifierPoints(
   actual: string[]
 ): number {
   let points = 0;
-  // 15 points for each correct third-placed team predicted
+  // 10 points for each correct third-placed team predicted
   predicted.forEach(team => {
-    if (actual.includes(team)) points += 15;
+    if (actual.includes(team)) points += 10;
   });
   return points;
 }

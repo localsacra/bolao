@@ -360,7 +360,7 @@ export function Predictions() {
           }
         }
       });
-      return incompleteGroupMatches + unfilledSpecial;
+      return incompleteGroupMatches;
     }
 
     // Individual group tabs (A, B, C...)
@@ -433,7 +433,7 @@ export function Predictions() {
 
       <div className="p-4 space-y-6">
         {/* Special Predictions */}
-        {(activeTab === 'Todos' || activeTab === 'Especiais') && (
+        {activeTab === 'Especiais' && (
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-lg">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />

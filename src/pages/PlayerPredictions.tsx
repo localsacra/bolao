@@ -141,6 +141,18 @@ export function PlayerPredictions() {
       .filter(t => t && t !== '');
   }, [groupPredictions]);
 
+  const thirdPlaceSlots = useMemo(() => {
+    const list = Object.values(groupPredictions)
+      .map(gp => ({ team: gp.position_3, group: gp.group_name }))
+      .filter(p => p.team && p.team !== '')
+      .sort((a, b) => a.group.localeCompare(b.group));
+    const slots = [...list];
+    while (slots.length < 8) {
+      slots.push({ team: '', group: '' });
+    }
+    return slots;
+  }, [groupPredictions]);
+
   // Group stage matches only, grouped A -> L
   const groupStageMatchesByGroup = useMemo(() => {
     const map: Record<string, Match[]> = {};
@@ -442,17 +454,17 @@ export function PlayerPredictions() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {sortedGroupNames.map(gName => {
-              const pred = groupPredictions[gName];
-              const pick = pred?.position_3 || null;
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {thirdPlaceSlots.map((item, idx) => {
+              const pick = item.team;
+              const gName = item.group;
               const isCorrect = pick && actualThirdPlacesAdvanced.includes(pick);
               const showResultStatus = actualThirdPlacesAdvanced.length > 0;
 
               return (
-                <div key={gName} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex flex-col justify-between min-h-[90px]">
+                <div key={idx} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex flex-col justify-between min-h-[90px]">
                   <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-2">
-                    {lang === 'pt' ? 'Grupo' : 'Group'} {gName}
+                    {lang === 'pt' ? `Vaga ${idx + 1}` : `Slot ${idx + 1}`} {gName && `(${lang === 'pt' ? 'Grupo' : 'Group'} ${gName})`}
                   </div>
                   {pick ? (
                     <div className="flex items-center justify-between">
@@ -462,14 +474,14 @@ export function PlayerPredictions() {
                       </div>
                       {showResultStatus && (
                         isCorrect ? (
-                          <span className="text-emerald-400 text-[10px] font-bold">✓ +15 pts</span>
+                          <span className="text-emerald-400 text-[10px] font-bold">✓ +10 pts</span>
                         ) : (
                           <span className="text-red-400 text-[10px] font-bold">✗ 0 pts</span>
                         )
                       )}
                     </div>
                   ) : (
-                    <span className="text-slate-500 text-xs italic">{lang === 'pt' ? 'Não selecionado' : 'Not selected'}</span>
+                    <span className="text-slate-500 text-xs italic">{lang === 'pt' ? 'Vazio' : 'Empty'}</span>
                   )}
                 </div>
               );
