@@ -46,6 +46,7 @@ export function Admin() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'group' | 'date'>('group');
 
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
   
@@ -555,23 +556,57 @@ export function Admin() {
           .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99))
           .map(([phase, phaseMatches]) => (
             <div key={phase} className="space-y-4">
-              <h2 className="text-xl font-bold text-emerald-400 capitalize border-b border-slate-800 pb-2">
-                {formatPhaseName(phase, lang)}
-              </h2>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h2 className="text-xl font-bold text-emerald-400 capitalize">
+                  {formatPhaseName(phase, lang)}
+                </h2>
+                {phase === 'group' && (
+                  <div className="flex bg-slate-950 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
+                    <button
+                      onClick={() => setViewMode('group')}
+                      className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                        viewMode === 'group'
+                          ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                          : 'hover:text-slate-200 hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {t(lang, 'predictions.viewByGroup')}
+                    </button>
+                    <button
+                      onClick={() => setViewMode('date')}
+                      className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                        viewMode === 'date'
+                          ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                          : 'hover:text-slate-200 hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {t(lang, 'predictions.viewByDate')}
+                    </button>
+                  </div>
+                )}
+              </div>
               
               {phase === 'group' ? (
-                Object.entries(
-                  phaseMatches.reduce((acc, m) => {
-                    if (!acc[m.group_name]) acc[m.group_name] = [];
-                    acc[m.group_name].push(m);
-                    return acc;
-                  }, {} as Record<string, Match[]>)
-                ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
-                  <div key={groupName} className="space-y-3">
-                    <h3 className="text-sm font-semibold text-slate-400">{t(lang, 'predictions.group')} {groupName}</h3>
-                    {gMatches.map(m => renderMatchAdminCard(m))}
+                viewMode === 'date' ? (
+                  <div className="space-y-3">
+                    {[...phaseMatches]
+                      .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+                      .map(m => renderMatchAdminCard(m))}
                   </div>
-                ))
+                ) : (
+                  Object.entries(
+                    phaseMatches.reduce((acc, m) => {
+                      if (!acc[m.group_name]) acc[m.group_name] = [];
+                      acc[m.group_name].push(m);
+                      return acc;
+                    }, {} as Record<string, Match[]>)
+                  ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
+                    <div key={groupName} className="space-y-3">
+                      <h3 className="text-sm font-semibold text-slate-400">{t(lang, 'predictions.group')} {groupName}</h3>
+                      {gMatches.map(m => renderMatchAdminCard(m))}
+                    </div>
+                  ))
+                )
               ) : (
                 <div className="space-y-3">
                   {phaseMatches.map(m => renderMatchAdminCard(m))}
