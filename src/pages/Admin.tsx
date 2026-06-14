@@ -46,7 +46,15 @@ export function Admin() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'group' | 'date'>('group');
+  const [viewMode, setViewMode] = useState<'group' | 'date'>(() => {
+    const stored = localStorage.getItem('admin_match_view_mode');
+    return (stored === 'group' || stored === 'date') ? stored : 'date';
+  });
+
+  const handleViewModeChange = (mode: 'group' | 'date') => {
+    setViewMode(mode);
+    localStorage.setItem('admin_match_view_mode', mode);
+  };
 
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
   
@@ -563,7 +571,7 @@ export function Admin() {
                 {phase === 'group' && (
                   <div className="flex bg-slate-950 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
                     <button
-                      onClick={() => setViewMode('group')}
+                      onClick={() => handleViewModeChange('group')}
                       className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                         viewMode === 'group'
                           ? 'bg-emerald-600 text-white shadow-sm font-bold'
@@ -573,7 +581,7 @@ export function Admin() {
                       {t(lang, 'predictions.viewByGroup')}
                     </button>
                     <button
-                      onClick={() => setViewMode('date')}
+                      onClick={() => handleViewModeChange('date')}
                       className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                         viewMode === 'date'
                           ? 'bg-emerald-600 text-white shadow-sm font-bold'
