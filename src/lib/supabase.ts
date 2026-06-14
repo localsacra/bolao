@@ -32,6 +32,7 @@ export interface Database {
           name: string
           email: string
           is_admin: boolean
+          is_hidden: boolean
           created_at: string
         }
         Insert: {
@@ -39,6 +40,7 @@ export interface Database {
           name: string
           email: string
           is_admin?: boolean
+          is_hidden?: boolean
           created_at?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export interface Database {
           name?: string
           email?: string
           is_admin?: boolean
+          is_hidden?: boolean
           created_at?: string
         }
         Relationships: any[]

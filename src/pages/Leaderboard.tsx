@@ -6,7 +6,8 @@ import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
-import { normalizeSpecialPrediction } from '../engine/scoring';
+import { calculatePoints, normalizeSpecialPrediction } from '../engine/scoring';
+import { FlagIcon } from '../components/FlagIcon';
 import {
   GROUP_STAGE_LOCK,
   TOTAL_MATCH_PREDICTIONS,
@@ -15,7 +16,7 @@ import {
 } from '../utils/constants';
 
 type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
-  profiles?: { name: string } | null;
+  profiles?: { name: string; is_hidden: boolean } | null;
 };
 
 interface CountdownSubtitleProps {
@@ -76,57 +77,34 @@ export function Leaderboard() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [championPredictions, setChampionPredictions] = useState<Record<string, string>>({});
   const [actualChampion, setActualChampion] = useState<string | null>(null);
+  const [matches, setMatches] = useState<Database['public']['Tables']['matches']['Row'][]>([]);
+  const [recentPredictions, setRecentPredictions] = useState<Database['public']['Tables']['predictions']['Row'][]>([]);
 
   const fetchLeaderboard = async () => {
     try {
-      const fetchAllPredictions = async () => {
-        let allData: { player_id: string }[] = [];
-        let from = 0;
-        let hasMore = true;
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('predictions')
-            .select('player_id')
-            .range(from, from + 999);
-          if (error) throw error;
-          if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            if (data.length < 1000) {
-              hasMore = false;
-            } else {
-              from += 1000;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
-        return allData;
-      };
+      // 1. Fetch matches first
+      const { data: matchesData, error: matchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .order('match_date', { ascending: true });
+      if (matchesError) throw matchesError;
+      const allMatches = matchesData || [];
+      setMatches(allMatches);
 
-      const fetchAllGroupPredictions = async () => {
-        let allData: { player_id: string }[] = [];
-        let from = 0;
-        let hasMore = true;
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('group_predictions')
-            .select('player_id')
-            .range(from, from + 999);
-          if (error) throw error;
-          if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            if (data.length < 1000) {
-              hasMore = false;
-            } else {
-              from += 1000;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
-        return allData;
-      };
+      // Determine completed matches
+      const completedMatches = allMatches.filter(
+        m => m.actual_score_a !== null && m.actual_score_b !== null
+      );
+      const resultsExist = completedMatches.length > 0;
+      setHasResults(resultsExist);
 
+      // Identify last 3 completed matches (newest to oldest)
+      const lastThreeCompleted = completedMatches
+        .sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+        .slice(0, 3);
+      const lastThreeMatchIds = lastThreeCompleted.map(m => m.id);
+
+      // Helpers for queries
       const fetchAllPlayerScores = async () => {
         let allData: any[] = [];
         let from = 0;
@@ -134,7 +112,7 @@ export function Leaderboard() {
         while (hasMore) {
           const { data, error } = await supabase
             .from('player_scores')
-            .select('*, profiles(name)')
+            .select('*, profiles(name, is_hidden)')
             .range(from, from + 999);
           if (error) throw error;
           if (data && data.length > 0) {
@@ -199,47 +177,136 @@ export function Leaderboard() {
         return allData;
       };
 
-      const [
-        scoresData,
-        specialData,
-        profilesData,
-        predsData,
-        groupPredsData,
-        matchCountRes,
-        matchesCheckRes
-      ] = await Promise.all([
-        fetchAllPlayerScores(),
-        fetchAllSpecialPredictions(),
-        fetchAllProfiles(),
-        fetchAllPredictions(),
-        fetchAllGroupPredictions(),
-        supabase.from('matches').select('*', { count: 'exact', head: true }),
-        supabase.from('matches').select('id').not('actual_score_a', 'is', null).limit(1)
-      ]);
-      
-      if (matchCountRes.error) {
-        console.error('Error fetching match count:', matchCountRes.error);
-        return;
-      }
+      const fetchAllPredictionsForMatches = async (matchIds: number[]) => {
+        if (matchIds.length === 0) return [];
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('predictions')
+            .select('player_id, match_id, predicted_score_a, predicted_score_b, predicted_tiebreaker_winner')
+            .in('match_id', matchIds)
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
 
-      const resultsExist = matchesCheckRes.data && matchesCheckRes.data.length > 0;
-      setHasResults(!!resultsExist);
+      const fetchAllPredictionsCountOnly = async () => {
+        let allData: { player_id: string }[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('predictions')
+            .select('player_id')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllGroupPredictionsCountOnly = async () => {
+        let allData: { player_id: string }[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('group_predictions')
+            .select('player_id')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      // 2. Conditional data fetches based on resultsExist
+      let scoresData: any[] = [];
+      let specialData: any[] = [];
+      let profilesData: any[] = [];
+      let groupPredsDataCountOnly: any[] = [];
+      let predsDataCountOnly: any[] = [];
+      let recentPredsData: any[] = [];
+
+      if (resultsExist) {
+        // Tournament started: Fetch scores, specials, profiles, recent predictions
+        const [sData, specData, profData, recPreds] = await Promise.all([
+          fetchAllPlayerScores(),
+          fetchAllSpecialPredictions(),
+          fetchAllProfiles(),
+          fetchAllPredictionsForMatches(lastThreeMatchIds)
+        ]);
+        scoresData = sData;
+        specialData = specData;
+        profilesData = profData;
+        recentPredsData = recPreds;
+      } else {
+        // Pre-tournament: Fetch profiles, prediction counts, group predictions, specials
+        const [profData, pDataCount, gpDataCount, specData] = await Promise.all([
+          fetchAllProfiles(),
+          fetchAllPredictionsCountOnly(),
+          fetchAllGroupPredictionsCountOnly(),
+          fetchAllSpecialPredictions()
+        ]);
+        profilesData = profData;
+        predsDataCountOnly = pDataCount;
+        groupPredsDataCountOnly = gpDataCount;
+        specialData = specData;
+      }
 
       setScores(scoresData as PlayerScore[]);
       setLastUpdated(formatMatchTime(new Date().toISOString()));
-
       setProfiles(profilesData);
+      setRecentPredictions(recentPredsData);
 
-      const matchCounts: Record<string, number> = {};
-      predsData.forEach(p => {
-        matchCounts[p.player_id] = (matchCounts[p.player_id] || 0) + 1;
-      });
+      // Pre-tournament count mappings
+      if (!resultsExist) {
+        const matchCounts: Record<string, number> = {};
+        predsDataCountOnly.forEach(p => {
+          matchCounts[p.player_id] = (matchCounts[p.player_id] || 0) + 1;
+        });
 
-      const groupCounts: Record<string, number> = {};
-      groupPredsData.forEach(p => {
-        groupCounts[p.player_id] = (groupCounts[p.player_id] || 0) + 1;
-      });
+        const groupCounts: Record<string, number> = {};
+        groupPredsDataCountOnly.forEach(p => {
+          groupCounts[p.player_id] = (groupCounts[p.player_id] || 0) + 1;
+        });
 
+        setMatchPredictionCounts(matchCounts);
+        setGroupPredictionCounts(groupCounts);
+      }
+
+      // Specials and Champions calculations
       const specialCounts: Record<string, number> = {};
       const officialRow = specialData.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
       setActualChampion(officialRow?.champion || null);
@@ -248,7 +315,6 @@ export function Leaderboard() {
       for (const row of specialData) {
         if (row.player_id !== '00000000-0000-0000-0000-000000000000') {
           map[row.player_id] = row.champion;
-          
           const filled = [
             row.champion,
             row.vice_champion,
@@ -260,10 +326,8 @@ export function Leaderboard() {
         }
       }
       setChampionPredictions(map);
-
-      setMatchPredictionCounts(matchCounts);
-      setGroupPredictionCounts(groupCounts);
       setSpecialPredictionCounts(specialCounts);
+
     } catch (err) {
       console.error('Error fetching leaderboard data:', err);
     } finally {
@@ -289,10 +353,21 @@ export function Leaderboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [lang]); // Refetch on language change to update dateFormat format
+  }, [lang]);
+
+  const lastThreeCompletedMatches = useMemo(() => {
+    return matches
+      .filter(m => m.actual_score_a !== null && m.actual_score_b !== null)
+      .sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+      .slice(0, 3);
+  }, [matches]);
 
   const leaderboardWithRank = useMemo(() => {
-    const sorted = [...scores].sort((a, b) => {
+    const visibleScores = scores.filter(score => {
+      return !score.profiles?.is_hidden || score.player_id === user?.id;
+    });
+
+    const sorted = [...visibleScores].sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points;
       
       // Tiebreaker 1: Champion correct
@@ -344,13 +419,14 @@ export function Leaderboard() {
       });
     }
     return result;
-  }, [scores, championPredictions, actualChampion]);
+  }, [scores, championPredictions, actualChampion, user?.id]);
 
   const activeEntrants = useMemo(() => {
     return profiles
       .filter(profile => profile.id !== '00000000-0000-0000-0000-000000000000')
+      .filter(profile => !profile.is_hidden || profile.id === user?.id)
       .sort((a, b) => a.name.localeCompare(b.name, lang));
-  }, [profiles, lang]);
+  }, [profiles, lang, user?.id]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -393,6 +469,29 @@ export function Leaderboard() {
         <h1 className="text-2xl font-bold text-emerald-400">🏆 {t(lang, 'leaderboard.title')}</h1>
         <CountdownSubtitle lockTime={GROUP_STAGE_LOCK} updatedAt={lastUpdated} />
       </div>
+
+      {/* Matches Summary Bar */}
+      {matches.length > 0 && (
+        <div className="mb-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between text-sm shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium">
+              {lang === 'pt' ? 'Partidas Realizadas:' : 'Matches Played:'}
+            </span>
+            <span className="text-emerald-400 font-bold text-base">
+              {matches.filter(m => m.actual_score_a !== null && m.actual_score_b !== null).length}
+            </span>
+          </div>
+          <div className="w-px h-5 bg-slate-700" />
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium">
+              {lang === 'pt' ? 'Restantes:' : 'Remaining:'}
+            </span>
+            <span className="text-amber-400 font-bold text-base">
+              {matches.filter(m => m.actual_score_a === null || m.actual_score_b === null).length}
+            </span>
+          </div>
+        </div>
+      )}
 
       {hasResults ? (
         leaderboardWithRank.length === 0 ? renderEmptyState() : (
@@ -461,8 +560,77 @@ export function Leaderboard() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-400 mt-1">
-                        {lang === 'pt' ? 'Partidas' : 'Matches'}: {item.match_points} {t(lang, 'predictions.points')} | {lang === 'pt' ? 'Grupos' : 'Groups'}: {item.group_points} {t(lang, 'predictions.points')} | {lang === 'pt' ? 'Especiais' : 'Specials'}: {item.special_points} {t(lang, 'predictions.points')}
+                      {/* Recent Picks Display */}
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        {lastThreeCompletedMatches.map((match) => {
+                          const pred = recentPredictions.find(
+                            p => p.player_id === item.player_id && p.match_id === match.id
+                          );
+                          const hasPred = pred !== undefined && pred !== null;
+                          
+                          if (!hasPred) {
+                            // Missing prediction slot: show empty placeholder
+                            return (
+                              <div 
+                                key={match.id} 
+                                className="flex items-center gap-1.5 bg-slate-900/40 border border-slate-700/30 px-2 py-0.5 rounded text-[11px] text-slate-500 shrink-0"
+                                title={lang === 'pt' ? 'Sem palpite' : 'No prediction'}
+                              >
+                                <FlagIcon country={match.team_a} size="sm" />
+                                <span className="font-semibold text-slate-600">— - —</span>
+                                <FlagIcon country={match.team_b} size="sm" />
+                                <span className="text-sm select-none">🔴</span>
+                                <span className="text-[10px] font-bold text-slate-500/60">+0pts</span>
+                              </div>
+                            );
+                          }
+
+                          // Calculation
+                          const points = calculatePoints(match, pred);
+                          
+                          // Determine outcome correctness
+                          const a = match.actual_score_a ?? 0;
+                          const b = match.actual_score_b ?? 0;
+                          const pa = pred.predicted_score_a;
+                          const pb = pred.predicted_score_b;
+
+                          const actualResult = a > b ? 'A' : a < b ? 'B' : 'D';
+                          const predResult = pa > pb ? 'A' : pa < pb ? 'B' : 'D';
+                          const isCorrect = actualResult === predResult;
+                          
+                          return (
+                            <div 
+                              key={match.id} 
+                              className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-700/40 px-2 py-0.5 rounded text-[11px] shrink-0"
+                            >
+                              <FlagIcon country={match.team_a} size="sm" />
+                              <span className="font-semibold text-slate-200">
+                                {pred.predicted_score_a} - {pred.predicted_score_b}
+                              </span>
+                              <FlagIcon country={match.team_b} size="sm" />
+                              <span className="text-sm select-none" title={isCorrect ? (lang === 'pt' ? 'Resultado correto' : 'Correct result') : (lang === 'pt' ? 'Resultado incorreto' : 'Incorrect result')}>
+                                {isCorrect ? '🟢' : '🔴'}
+                              </span>
+                              <span className={`text-[10px] font-bold ${points > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
+                                +{points}pts
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {/* If the tournament has fewer than 3 completed matches, pad with placeholders to always show 3 slots */}
+                        {Array.from({ length: Math.max(0, 3 - lastThreeCompletedMatches.length) }).map((_, i) => (
+                          <div 
+                            key={`placeholder-${i}`} 
+                            className="flex items-center gap-1.5 bg-slate-900/20 border border-slate-800/40 px-2 py-0.5 rounded text-[11px] text-slate-650 shrink-0 select-none"
+                          >
+                            <span className="text-[10px]">—</span>
+                            <span className="font-medium text-slate-700">— - —</span>
+                            <span className="text-[10px]">—</span>
+                            <span className="text-sm">⚪</span>
+                            <span className="text-[10px] font-bold text-slate-500/40">+0pts</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

@@ -25,7 +25,7 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 export function PlayerPredictions() {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isLoading: authLoading } = useAuthStore();
   const { lang } = useLang();
   
   const [viewMode, setViewMode] = useState<'group' | 'date'>(() => {
@@ -57,6 +57,14 @@ export function PlayerPredictions() {
   // Actual results & standings
   const [actualStandings, setActualStandings] = useState<Record<string, GroupPrediction>>({});
   const [actualSpecial, setActualSpecial] = useState<SpecialPredictionRow | null>(null);
+
+  // Redirect if profile is hidden and is not the current user
+  useEffect(() => {
+    if (authLoading) return; // Wait for authentication to resolve
+    if (profile && profile.is_hidden && profile.id !== currentUser?.id) {
+      navigate('/leaderboard', { replace: true });
+    }
+  }, [profile, currentUser, authLoading, navigate]);
 
   useEffect(() => {
     if (!playerId || !isLocked) return;
