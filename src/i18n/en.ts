@@ -119,6 +119,11 @@ export const en = {
     timezone: "Ireland Time (IST, UTC+1)",
   },
 
+  pwa: {
+    updating: "Updating to the latest version...",
+    offlineReady: "App ready for offline use",
+  },
+
   common: {
     loading: "Loading...",
     error: "Error",

@@ -9,6 +9,7 @@ import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { useAuthStore } from './store/useAuthStore';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { ReloadPrompt } from './components/ReloadPrompt';
 
 function App() {
   const { initialize } = useAuthStore();
@@ -32,6 +33,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      <ReloadPrompt />
     </LanguageProvider>
   );
 }

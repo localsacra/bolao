@@ -11,6 +11,17 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co/i,
+            handler: 'NetworkOnly'
+          }
+        ]
+      },
       manifest: {
         name: 'Bolão da Copa',
         short_name: 'Bolão',

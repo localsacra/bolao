@@ -128,6 +128,12 @@ export const pt = {
     timezone: "Horário de Brasília (BRT, UTC-3)",
   },
 
+  // PWA
+  pwa: {
+    updating: "Atualizando para a versão mais recente...",
+    offlineReady: "Aplicativo pronto para uso offline",
+  },
+
   // Common
   common: {
     loading: "Carregando...",
