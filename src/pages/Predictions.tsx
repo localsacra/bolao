@@ -60,7 +60,7 @@ export function Predictions() {
   const [activeTab, setActiveTab] = useState("Todos");
   const [viewMode, setViewMode] = useState<'group' | 'date'>(() => {
     const stored = localStorage.getItem('predictions_view_mode');
-    return (stored === 'group' || stored === 'date') ? stored : 'group';
+    return (stored === 'group' || stored === 'date') ? stored : 'date';
   });
 
   const handleViewModeChange = (mode: 'group' | 'date') => {
