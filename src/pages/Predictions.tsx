@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
@@ -47,6 +47,78 @@ const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
   return map[phase] || phase;
 };
 
+const isMatchLocked = (match: Match) => {
+  const isGroup = match.phase === 'group';
+  return isGroup
+    ? new Date() >= GROUP_STAGE_LOCK
+    : new Date() > new Date(match.deadline);
+};
+
+const isMatchScored = (match: Match) => {
+  return match.actual_score_a !== null && match.actual_score_b !== null;
+};
+
+const getOrderedRenderedMatches = (
+  matches: Match[],
+  activeTab: string,
+  viewMode: 'group' | 'date'
+): Match[] => {
+  if (activeTab === 'Grupos' || activeTab === 'Especiais') return [];
+
+  const filtered = matches.filter(m => activeTab === 'Todos' || m.group_name === activeTab);
+  
+  const grouped: Record<string, Match[]> = {};
+  filtered.forEach(m => {
+    if (!grouped[m.phase]) grouped[m.phase] = [];
+    grouped[m.phase].push(m);
+  });
+
+  const orderedPhases = Object.entries(grouped)
+    .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99));
+
+  const result: Match[] = [];
+
+  orderedPhases.forEach(([phase, phaseMatches]) => {
+    if (phase === 'group') {
+      if (viewMode === 'date') {
+        const sorted = [...phaseMatches].sort(
+          (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+        );
+        result.push(...sorted);
+      } else {
+        const groups: Record<string, Match[]> = {};
+        phaseMatches.forEach(m => {
+          if (!groups[m.group_name]) groups[m.group_name] = [];
+          groups[m.group_name].push(m);
+        });
+        const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+        sortedGroupNames.forEach(groupName => {
+          result.push(...groups[groupName]);
+        });
+      }
+    } else {
+      result.push(...phaseMatches);
+    }
+  });
+
+  return result;
+};
+
+const findScrollTarget = (orderedMatches: Match[]): Match | null => {
+  if (orderedMatches.length === 0) return null;
+
+  // 1. First match that is locked but unscored
+  const target = orderedMatches.find(m => isMatchLocked(m) && !isMatchScored(m));
+  if (target) return target;
+
+  // 2. If no matches are locked yet (all still open), scroll to the first open/upcoming match
+  const firstOpen = orderedMatches.find(m => !isMatchLocked(m));
+  if (firstOpen) return firstOpen;
+
+  // 3. Fallback: scroll to the last match
+  return orderedMatches[orderedMatches.length - 1];
+};
+
 export function Predictions() {
   const { user } = useAuthStore();
   const { lang } = useLang();
@@ -72,6 +144,31 @@ export function Predictions() {
   const [specialSaveStatus, setSpecialSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [groupPredictions, setGroupPredictions] = useState<any[]>([]);
+
+  const hasScrolled = useRef(false);
+
+  useEffect(() => {
+    hasScrolled.current = false;
+  }, [activeTab, viewMode]);
+
+  useEffect(() => {
+    if (loading || hasScrolled.current) return;
+    if (activeTab === 'Grupos' || activeTab === 'Especiais') return;
+
+    const ordered = getOrderedRenderedMatches(matches, activeTab, viewMode);
+    const target = findScrollTarget(ordered);
+
+    if (target) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`match-${target.id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          hasScrolled.current = true;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, activeTab, viewMode, matches]);
 
   const refetchGroupPredictions = async () => {
     if (!user) return;
@@ -630,17 +727,14 @@ export function Predictions() {
   );
 
   function renderMatchCard(match: Match) {
-    const isGroup = match.phase === 'group';
-    const isDeadlinePassed = isGroup
-      ? new Date() >= GROUP_STAGE_LOCK
-      : new Date() > new Date(match.deadline);
+    const isDeadlinePassed = isMatchLocked(match);
     const pred = localPredictions[match.id] || {};
     const isKnockout = match.phase !== 'group';
     const isDraw = pred.predicted_score_a !== undefined && 
                    pred.predicted_score_a === pred.predicted_score_b;
 
     return (
-      <div key={match.id} className={`bg-slate-800/60 border ${isDeadlinePassed ? 'border-slate-700/50 opacity-80' : 'border-slate-700'} rounded-xl p-4 relative transition-all hover:bg-slate-800`}>
+      <div key={match.id} id={`match-${match.id}`} className={`scroll-mt-28 bg-slate-800/60 border ${isDeadlinePassed ? 'border-slate-700/50 opacity-80' : 'border-slate-700'} rounded-xl p-4 relative transition-all hover:bg-slate-800`}>
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
