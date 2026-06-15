@@ -463,6 +463,8 @@ export function Leaderboard() {
     </div>
   );
 
+  const leaderPoints = leaderboardWithRank[0]?.total_points ?? 0;
+
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-24 max-w-3xl mx-auto w-full p-4">
       <div className="mb-6">
@@ -511,7 +513,7 @@ export function Leaderboard() {
               if (isCurrentUser) {
                 containerClasses += "border-l-4 border-l-emerald-500 border-t-emerald-500/20 border-r-emerald-500/20 border-b-emerald-500/20 bg-slate-800 shadow-md ";
                 if (isLocked) {
-                  containerClasses += "hover:bg-slate-850 ";
+                  containerClasses += "hover:bg-slate-855 ";
                 }
               } else {
                 containerClasses += "border-slate-700 bg-slate-800/50 ";
@@ -638,6 +640,13 @@ export function Leaderboard() {
                   <div className="flex flex-col items-end shrink-0 pl-4">
                     <span className="text-2xl font-black text-white">{item.total_points}</span>
                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">{t(lang, 'leaderboard.points')}</span>
+                    {item.rank > 1 && (
+                      <span className="text-[9px] text-slate-400 mt-0.5">
+                        {lang === 'pt'
+                          ? `-${leaderPoints - item.total_points} do 1º`
+                          : `-${leaderPoints - item.total_points} from 1st`}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
