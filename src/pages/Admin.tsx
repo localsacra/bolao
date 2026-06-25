@@ -599,12 +599,17 @@ export function Admin() {
     setSavingGroup(prev => ({ ...prev, [groupName]: true }));
     try {
       // Fetch the existing official row for this group to preserve position_3 and position_4
-      const { data: existing } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from('group_predictions')
         .select('*')
         .eq('player_id', '00000000-0000-0000-0000-000000000000')
         .eq('group_name', groupName)
         .maybeSingle();
+
+      if (fetchError) {
+        console.error('Supabase fetch official standing error:', fetchError);
+        throw fetchError;
+      }
 
       const payload = {
         player_id: '00000000-0000-0000-0000-000000000000',
@@ -615,11 +620,14 @@ export function Admin() {
         position_4: existing?.position_4 || ''
       };
 
-      const { error } = await supabase
+      const { error: upsertError } = await supabase
         .from('group_predictions')
         .upsert(payload, { onConflict: 'player_id,group_name' });
 
-      if (error) throw error;
+      if (upsertError) {
+        console.error('Supabase upsert official standing error:', upsertError);
+        throw upsertError;
+      }
 
       // Automatically trigger a full recalculation of points for all players
       // Ensure the save fully resolves before calling recalculateScores()
