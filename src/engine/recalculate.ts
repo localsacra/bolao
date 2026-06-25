@@ -1,8 +1,12 @@
 import { supabase } from '../lib/supabase';
-import { calculatePoints } from './scoring';
+import { calculatePoints, calculateGroupPositionPoints } from './scoring';
 
-export const recalculateScores = async (matchId: number) => {
-  console.log('Recalculating scores after update to match:', matchId);
+export const recalculateScores = async (matchId?: number) => {
+  if (matchId !== undefined) {
+    console.log('Recalculating scores after update to match:', matchId);
+  } else {
+    console.log('Recalculating scores after admin standing update');
+  }
   
   const fetchAllPredictions = async () => {
     let allData: any[] = [];
@@ -81,12 +85,16 @@ export const recalculateScores = async (matchId: number) => {
       allMatchesRes,
       allPredictions,
       allPlayerScores,
-      profiles
+      profiles,
+      officialGroupPredsRes,
+      allGroupPredictionsRes
     ] = await Promise.all([
       supabase.from('matches').select('*').not('actual_score_a', 'is', null),
       fetchAllPredictions(),
       fetchAllPlayerScores(),
-      fetchAllProfiles()
+      fetchAllProfiles(),
+      supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
     ]);
 
     const allMatches = allMatchesRes.data;
@@ -107,20 +115,67 @@ export const recalculateScores = async (matchId: number) => {
       }
     });
 
+    // Map official group standings (A-L)
+    const officialGroups = new Map<string, any>();
+    if (officialGroupPredsRes.data) {
+      officialGroupPredsRes.data.forEach(g => {
+        if (g.position_1 && g.position_2) {
+          officialGroups.set(g.group_name, g);
+        }
+      });
+    }
+
+    // Map player group predictions by player_id -> group_name -> prediction
+    const groupPredsMap = new Map<string, Map<string, any>>();
+    if (allGroupPredictionsRes.data) {
+      allGroupPredictionsRes.data.forEach(gp => {
+        if (!groupPredsMap.has(gp.player_id)) {
+          groupPredsMap.set(gp.player_id, new Map());
+        }
+        groupPredsMap.get(gp.player_id)!.set(gp.group_name, gp);
+      });
+    }
+
     const existingScoresMap = new Map(allPlayerScores?.map(s => [s.player_id, s]) || []);
 
     const upserts = profiles.map(profile => {
       const pId = profile.id;
       const matchPoints = scoresByPlayer.get(pId) || 0;
-      const existing = existingScoresMap.get(pId) || { group_points: 0, special_points: 0, id: undefined };
+      
+      // Calculate group points for player pId (positions 1 & 2 only)
+      let groupPoints = 0;
+      const playerGroupPreds = groupPredsMap.get(pId);
+      
+      officialGroups.forEach((official, groupName) => {
+        const pred = playerGroupPreds?.get(groupName);
+        if (pred) {
+          const firstPick = pred.position_1 || null;
+          const secondPick = pred.position_2 || null;
+
+          const getPointsForPick = (pick: string | null, targetPosition: '1' | '2') => {
+            if (!pick) return 0;
+            const predPos = targetPosition;
+            const actPos = official.position_1 === pick ? '1' : official.position_2 === pick ? '2' : official.position_3 === pick ? '3' : '4';
+            const predQualify = true; // picked in top 2
+            const didQualify = actPos === '1' || actPos === '2';
+            return calculateGroupPositionPoints(predPos, actPos, predQualify, didQualify);
+          };
+
+          const p1Points = getPointsForPick(firstPick, '1');
+          const p2Points = getPointsForPick(secondPick, '2');
+          groupPoints += p1Points + p2Points;
+        }
+      });
+
+      const existing = existingScoresMap.get(pId) || { special_points: 0, id: undefined };
       
       return {
         ...(existing.id ? { id: existing.id } : {}),
         player_id: pId,
         match_points: matchPoints,
-        group_points: existing.group_points,
+        group_points: groupPoints,
         special_points: existing.special_points,
-        total_points: matchPoints + existing.group_points + existing.special_points,
+        total_points: matchPoints + groupPoints + existing.special_points,
         updated_at: new Date().toISOString()
       };
     });

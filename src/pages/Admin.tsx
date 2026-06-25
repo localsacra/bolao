@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
-import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2 } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
 import { useLang } from '../contexts/LanguageContext';
@@ -42,7 +42,7 @@ const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
 
 export function Admin() {
   const { lang } = useLang();
-  const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores'>('resultados');
+  const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores' | 'grupos'>('resultados');
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +74,25 @@ export function Admin() {
   const [exporting, setExporting] = useState(false);
   const [exportingPredictions, setExportingPredictions] = useState(false);
 
+  // Tab 4 (Grupos) state
+  const [officialStandings, setOfficialStandings] = useState<Record<string, { first: string, second: string }>>({});
+  const [savingGroup, setSavingGroup] = useState<Record<string, boolean>>({});
+
+  const teamsByGroup = React.useMemo(() => {
+    const map: Record<string, string[]> = {};
+    matches.forEach(m => {
+      if (m.phase === 'group' && m.group_name) {
+        if (!map[m.group_name]) map[m.group_name] = [];
+        if (!map[m.group_name].includes(m.team_a)) map[m.group_name].push(m.team_a);
+        if (!map[m.group_name].includes(m.team_b)) map[m.group_name].push(m.team_b);
+      }
+    });
+    Object.keys(map).forEach(key => {
+      map[key].sort();
+    });
+    return map;
+  }, [matches]);
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -82,13 +101,35 @@ export function Admin() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [{ data: matchesData }, { data: profilesData }] = await Promise.all([
+      const [
+        { data: matchesData },
+        { data: profilesData },
+        { data: officialGroupsData }
+      ] = await Promise.all([
         supabase.from('matches').select('*').order('match_date', { ascending: true }),
-        supabase.from('profiles').select('*').order('name', { ascending: true }).limit(10000)
+        supabase.from('profiles').select('*').order('name', { ascending: true }).limit(10000),
+        supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000')
       ]);
 
       if (matchesData) setMatches(matchesData);
       if (profilesData) setProfiles(profilesData);
+
+      const standingsMap: Record<string, { first: string, second: string }> = {};
+      const GROUP_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+      GROUP_NAMES.forEach(g => {
+        standingsMap[g] = { first: '', second: '' };
+      });
+
+      if (officialGroupsData) {
+        officialGroupsData.forEach(p => {
+          standingsMap[p.group_name] = {
+            first: p.position_1 || '',
+            second: p.position_2 || ''
+          };
+        });
+      }
+      setOfficialStandings(standingsMap);
+
       setLoading(false);
     };
 
@@ -543,6 +584,172 @@ export function Admin() {
     }
   };
 
+  const saveGroupStanding = async (groupName: string) => {
+    const standing = officialStandings[groupName];
+    if (!standing) return;
+    
+    if (standing.first && standing.second && standing.first === standing.second) {
+      showToast(
+        lang === 'pt' ? 'O primeiro e segundo colocado devem ser times diferentes!' : '1st and 2nd place must be different teams!',
+        'error'
+      );
+      return;
+    }
+    
+    setSavingGroup(prev => ({ ...prev, [groupName]: true }));
+    try {
+      // Fetch the existing official row for this group to preserve position_3 and position_4
+      const { data: existing } = await supabase
+        .from('group_predictions')
+        .select('*')
+        .eq('player_id', '00000000-0000-0000-0000-000000000000')
+        .eq('group_name', groupName)
+        .maybeSingle();
+
+      const payload = {
+        player_id: '00000000-0000-0000-0000-000000000000',
+        group_name: groupName,
+        position_1: standing.first || '',
+        position_2: standing.second || '',
+        position_3: existing?.position_3 || '',
+        position_4: existing?.position_4 || ''
+      };
+
+      const { error } = await supabase
+        .from('group_predictions')
+        .upsert(payload, { onConflict: 'player_id,group_name' });
+
+      if (error) throw error;
+
+      // Automatically trigger a full recalculation of points for all players
+      // Ensure the save fully resolves before calling recalculateScores()
+      await recalculateScores();
+
+      showToast(
+        lang === 'pt' ? `Classificação do Grupo ${groupName} salva e pontos recalculados!` : `Group ${groupName} standings saved and points recalculated!`,
+        'success'
+      );
+    } catch (e) {
+      console.error('Error saving group standing:', e);
+      showToast(
+        lang === 'pt' ? 'Erro ao salvar classificação do grupo.' : 'Error saving group standings.',
+        'error'
+      );
+    } finally {
+      setSavingGroup(prev => ({ ...prev, [groupName]: false }));
+    }
+  };
+
+  const renderGrupos = () => {
+    const GROUP_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b border-slate-800 pb-2">
+          <h2 className="text-xl font-bold text-emerald-400">
+            {lang === 'pt' ? 'Classificação Oficial dos Grupos' : 'Official Group Standings'}
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            {lang === 'pt'
+              ? 'Defina o 1º e 2º colocados de cada grupo. O salvamento recalcula automaticamente os pontos dos jogadores para a fase de grupos (posições 1 e 2).'
+              : 'Set the 1st and 2nd place finishers for each group. Saving automatically recalculates player points for the group stage (positions 1 and 2).'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {GROUP_NAMES.map(groupName => {
+            const groupTeams = teamsByGroup[groupName] || [];
+            const standing = officialStandings[groupName] || { first: '', second: '' };
+            const isSaving = !!savingGroup[groupName];
+
+            return (
+              <div
+                key={groupName}
+                className="bg-slate-800/60 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="text-lg font-bold text-emerald-400 mb-4">
+                    {lang === 'pt' ? 'GRUPO' : 'GROUP'} {groupName}
+                  </h3>
+
+                  <div className="space-y-4">
+                    {/* 1st Place */}
+                    <div>
+                      <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">
+                        1º {lang === 'pt' ? 'Lugar' : 'Place'}
+                      </label>
+                      <select
+                        value={standing.first}
+                        onChange={e =>
+                          setOfficialStandings(prev => ({
+                            ...prev,
+                            [groupName]: { ...prev[groupName], first: e.target.value }
+                          }))
+                        }
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+                      >
+                        <option value="">-- {lang === 'pt' ? 'Selecione' : 'Select'} --</option>
+                        {groupTeams.map(team => (
+                          <option key={team} value={team}>
+                            {team}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 2nd Place */}
+                    <div>
+                      <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">
+                        2º {lang === 'pt' ? 'Lugar' : 'Place'}
+                      </label>
+                      <select
+                        value={standing.second}
+                        onChange={e =>
+                          setOfficialStandings(prev => ({
+                            ...prev,
+                            [groupName]: { ...prev[groupName], second: e.target.value }
+                          }))
+                        }
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+                      >
+                        <option value="">-- {lang === 'pt' ? 'Selecione' : 'Select'} --</option>
+                        {groupTeams.map(team => (
+                          <option key={team} value={team}>
+                            {team}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-slate-700 flex justify-end">
+                  <button
+                    onClick={() => saveGroupStanding(groupName)}
+                    disabled={isSaving}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{t(lang, 'admin.saving')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>{t(lang, 'admin.save')}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full pt-20">
@@ -854,13 +1061,14 @@ export function Admin() {
           {[
             { id: 'resultados', label: t(lang, 'admin.results'), icon: Trophy },
             { id: 'partidas', label: t(lang, 'admin.matches'), icon: Calendar },
-            { id: 'jogadores', label: t(lang, 'admin.players'), icon: Users }
+            { id: 'jogadores', label: t(lang, 'admin.players'), icon: Users },
+            { id: 'grupos', label: lang === 'pt' ? 'Grupos' : 'Groups', icon: Trophy }
           ].map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'resultados' | 'partidas' | 'jogadores')}
+                onClick={() => setActiveTab(tab.id as 'resultados' | 'partidas' | 'jogadores' | 'grupos')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-colors ${
                   activeTab === tab.id
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -879,6 +1087,7 @@ export function Admin() {
         {activeTab === 'resultados' && renderResultados()}
         {activeTab === 'partidas' && renderPartidas()}
         {activeTab === 'jogadores' && renderJogadores()}
+        {activeTab === 'grupos' && renderGrupos()}
       </div>
 
       {/* Export Predictions Section */}
