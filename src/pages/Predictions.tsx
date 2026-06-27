@@ -21,26 +21,29 @@ const TABS = ["Todos", "Especiais", "Grupos", "A", "B", "C", "D", "E", "F", "G",
 
 const PHASE_ORDER: Record<string, number> = {
   'group': 1,
-  'round_16': 2,
-  'quarter_finals': 3,
-  'semi_finals': 4,
-  'third_place': 5,
-  'final': 6
+  'round_of_32': 2,
+  'round_of_16': 3,
+  'quarter_final': 4,
+  'semi_final': 5,
+  'third_place': 6,
+  'final': 7
 };
 
 const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
   const map: Record<string, string> = lang === 'pt' ? {
     'group': 'Fase de Grupos',
-    'round_16': 'Oitavas de Final',
-    'quarter_finals': 'Quartas de Final',
-    'semi_finals': 'Semifinal',
+    'round_of_32': 'Oitavas de Final',
+    'round_of_16': 'Oitavas de Final',
+    'quarter_final': 'Quartas de Final',
+    'semi_final': 'Semifinal',
     'third_place': 'Disputa de 3º Lugar',
     'final': 'Final'
   } : {
     'group': 'Group Stage',
-    'round_16': 'Round of 16',
-    'quarter_finals': 'Quarterfinals',
-    'semi_finals': 'Semifinals',
+    'round_of_32': 'Round of 32',
+    'round_of_16': 'Round of 16',
+    'quarter_final': 'Quarterfinals',
+    'semi_final': 'Semifinals',
     'third_place': '3rd Place Match',
     'final': 'Final'
   };

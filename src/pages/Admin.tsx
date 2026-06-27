@@ -15,25 +15,28 @@ const PHASE_ORDER: Record<string, number> = {
   'group': 1,
   'round_of_32': 2,
   'round_of_16': 3,
-  'quarterfinal': 4,
-  'semifinal': 5,
-  'final': 6
+  'quarter_final': 4,
+  'semi_final': 5,
+  'third_place': 6,
+  'final': 7
 };
 
 const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
   const map: Record<string, string> = lang === 'pt' ? {
     'group': 'Fase de Grupos',
-    'round_of_32': 'Dezesseis-avos',
+    'round_of_32': 'Oitavas de Final',
     'round_of_16': 'Oitavas de Final',
-    'quarterfinal': 'Quartas de Final',
-    'semifinal': 'Semifinal',
+    'quarter_final': 'Quartas de Final',
+    'semi_final': 'Semifinal',
+    'third_place': 'Disputa de 3º Lugar',
     'final': 'Final'
   } : {
     'group': 'Group Stage',
     'round_of_32': 'Round of 32',
     'round_of_16': 'Round of 16',
-    'quarterfinal': 'Quarterfinals',
-    'semifinal': 'Semifinals',
+    'quarter_final': 'Quarterfinals',
+    'semi_final': 'Semifinals',
+    'third_place': '3rd Place Match',
     'final': 'Final'
   };
   return map[phase] || phase;
@@ -65,7 +68,7 @@ export function Admin() {
   // Tab 2 state
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
   const [newMatch, setNewMatch] = useState({
-    phase: 'round_of_16', team_a: '', team_b: '', match_date: '', deadline: ''
+    phase: 'round_of_32', team_a: '', team_b: '', match_date: '', deadline: ''
   });
   const [savingMatch, setSavingMatch] = useState(false);
 
@@ -241,7 +244,7 @@ export function Admin() {
     } else {
       showToast(lang === 'pt' ? 'Partida criada com sucesso!' : 'Match created successfully!', 'success');
       setShowNewMatchModal(false);
-      setNewMatch({ phase: 'round_of_16', team_a: '', team_b: '', match_date: '', deadline: '' });
+      setNewMatch({ phase: 'round_of_32', team_a: '', team_b: '', match_date: '', deadline: '' });
       const { data } = await supabase.from('matches').select('*').order('match_date', { ascending: true });
       if (data) setMatches(data);
     }
@@ -1152,10 +1155,11 @@ export function Admin() {
                   onChange={e => setNewMatch(p => ({ ...p, phase: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="round_of_32">{lang === 'pt' ? 'Dezesseis-avos (Round of 32)' : 'Round of 32'}</option>
+                  <option value="round_of_32">{lang === 'pt' ? 'Oitavas de Final (Round of 32)' : 'Round of 32'}</option>
                   <option value="round_of_16">{lang === 'pt' ? 'Oitavas de Final (Round of 16)' : 'Round of 16'}</option>
-                  <option value="quarterfinal">{lang === 'pt' ? 'Quartas de Final' : 'Quarterfinal'}</option>
-                  <option value="semifinal">{lang === 'pt' ? 'Semifinal' : 'Semifinal'}</option>
+                  <option value="quarter_final">{lang === 'pt' ? 'Quartas de Final' : 'Quarterfinal'}</option>
+                  <option value="semi_final">{lang === 'pt' ? 'Semifinal' : 'Semifinal'}</option>
+                  <option value="third_place">{lang === 'pt' ? 'Disputa de 3º Lugar' : '3rd Place Match'}</option>
                   <option value="final">{lang === 'pt' ? 'Final' : 'Final'}</option>
                 </select>
               </div>

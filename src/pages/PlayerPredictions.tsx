@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
-import { ArrowLeft, Trophy, Medal, Star, Award } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Star, Award, Lock } from 'lucide-react';
 import { 
   calculatePoints, 
   calculateGroupPositionPoints, 
@@ -21,6 +21,34 @@ type Prediction = Database['public']['Tables']['predictions']['Row'];
 type GroupPrediction = Database['public']['Tables']['group_predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
+
+const isMatchLocked = (match: Match) => {
+  const isGroup = match.phase === 'group';
+  return isGroup
+    ? new Date() >= GROUP_STAGE_LOCK
+    : new Date() > new Date(match.deadline);
+};
+
+const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
+  const map: Record<string, string> = lang === 'pt' ? {
+    'group': 'Fase de Grupos',
+    'round_of_32': 'Oitavas de Final',
+    'round_of_16': 'Oitavas de Final',
+    'quarter_final': 'Quartas de Final',
+    'semi_final': 'Semifinal',
+    'third_place': 'Disputa de 3º Lugar',
+    'final': 'Final'
+  } : {
+    'group': 'Group Stage',
+    'round_of_32': 'Round of 32',
+    'round_of_16': 'Round of 16',
+    'quarter_final': 'Quarterfinals',
+    'semi_final': 'Semifinals',
+    'third_place': '3rd Place Match',
+    'final': 'Final'
+  };
+  return map[phase] || phase;
+};
 
 export function PlayerPredictions() {
   const { playerId } = useParams<{ playerId: string }>();
@@ -195,6 +223,32 @@ export function PlayerPredictions() {
       .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
   }, [matches]);
 
+  // Knockout matches grouped by phase
+  const knockoutStageMatchesByPhase = useMemo(() => {
+    const map: Record<string, Match[]> = {};
+    matches
+      .filter(m => m.phase !== 'group')
+      .forEach(m => {
+        if (!map[m.phase]) map[m.phase] = [];
+        map[m.phase].push(m);
+      });
+    return map;
+  }, [matches]);
+
+  // Sorted list of knockout phases present
+  const sortedKnockoutPhases = useMemo(() => {
+    const PHASE_ORDER: Record<string, number> = {
+      'round_of_32': 2,
+      'round_of_16': 3,
+      'quarter_final': 4,
+      'semi_final': 5,
+      'third_place': 6,
+      'final': 7
+    };
+    return Object.keys(knockoutStageMatchesByPhase)
+      .sort((a, b) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99));
+  }, [knockoutStageMatchesByPhase]);
+
   if (!isLocked) {
     return null;
   }
@@ -245,8 +299,10 @@ export function PlayerPredictions() {
 
   function renderMatchCard(match: Match) {
     const pred = predictions[match.id];
-    const hasPred = pred !== undefined;
-    const points = hasPred ? calculatePoints(match, pred) : 0;
+    const isLocked = isMatchLocked(match);
+    const showPrediction = isCurrentUser || isLocked;
+    const hasPred = pred !== undefined && showPrediction;
+    const points = (pred !== undefined && match.actual_score_a !== null && match.actual_score_b !== null) ? calculatePoints(match, pred) : 0;
     
     const scoreA = hasPred ? pred.predicted_score_a : null;
     const scoreB = hasPred ? pred.predicted_score_b : null;
@@ -259,9 +315,9 @@ export function PlayerPredictions() {
           <span className="text-[10px] font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
             {formatMatchTime(match.match_date)}
           </span>
-          {hasPred && (
-            <span className="text-xs text-slate-400">
-              {t(lang, 'predictions.saved')}
+          {pred !== undefined && (
+            <span className="text-xs text-slate-400 flex items-center gap-1">
+              {!showPrediction && <Lock className="w-3 h-3 text-slate-500" />} {t(lang, 'predictions.saved')}
             </span>
           )}
         </div>
@@ -291,6 +347,20 @@ export function PlayerPredictions() {
             <span className="font-semibold text-xs text-center leading-tight text-slate-200">{match.team_b}</span>
           </div>
         </div>
+
+        {/* Tie Breaker Details (Knockout only) */}
+        {match.phase !== 'group' && scoreA !== null && scoreB !== null && scoreA === scoreB && (
+          <div className="mt-3 pt-3 border-t border-slate-700/30 flex justify-between items-center text-xs text-slate-400 bg-slate-900/10 p-2 rounded-lg">
+            <span>
+              {lang === 'pt' ? 'Avança:' : 'Advances:'} <strong className="text-slate-200">{pred?.advance_team || '—'}</strong>
+            </span>
+            {pred?.advance_method && (
+              <span>
+                {lang === 'pt' ? 'Como:' : 'How:'} <strong className="text-slate-200">{pred.advance_method}</strong>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Real Result & Score Badge */}
         {match.actual_score_a !== null && match.actual_score_b !== null && (
@@ -391,6 +461,33 @@ export function PlayerPredictions() {
           )}
         </div>
       </section>
+
+      {/* SECTION 1.5: MATCH PREDICTIONS (Knockout Stage) */}
+      {Object.keys(knockoutStageMatchesByPhase).length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2">
+            🏆 {lang === 'pt' ? 'Palpites de Partidas (Mata-Mata)' : 'Match Predictions (Knockout Stage)'}
+          </h2>
+          
+          <div className="space-y-8">
+            {sortedKnockoutPhases.map(phase => {
+              const phaseMatches = knockoutStageMatchesByPhase[phase] || [];
+              
+              return (
+                <div key={phase} className="space-y-3">
+                  <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
+                    {formatPhaseName(phase, lang)}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {phaseMatches.map(match => renderMatchCard(match))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* SECTION 2: GROUP STANDINGS PREDICTIONS */}
       <section className="space-y-6">
