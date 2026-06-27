@@ -32,7 +32,7 @@ const isMatchLocked = (match: Match) => {
 const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
   const map: Record<string, string> = lang === 'pt' ? {
     'group': 'Fase de Grupos',
-    'round_of_32': 'Oitavas de Final',
+    'round_of_32': 'Dezesseis-avos de Final',
     'round_of_16': 'Oitavas de Final',
     'quarter_final': 'Quartas de Final',
     'semi_final': 'Semifinal',
