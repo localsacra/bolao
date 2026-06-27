@@ -356,7 +356,13 @@ export function PlayerPredictions() {
             </span>
             {pred?.advance_method && (
               <span>
-                {lang === 'pt' ? 'Como:' : 'How:'} <strong className="text-slate-200">{pred.advance_method}</strong>
+                {lang === 'pt' ? 'Como:' : 'How:'} <strong className="text-slate-200">
+                  {pred.advance_method === 'Prorrogação'
+                    ? (lang === 'pt' ? 'Prorrogação' : 'Extra Time')
+                    : pred.advance_method === 'Pênaltis'
+                      ? (lang === 'pt' ? 'Pênaltis' : 'Penalties')
+                      : pred.advance_method}
+                </strong>
               </span>
             )}
           </div>
