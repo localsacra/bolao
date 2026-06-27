@@ -66,6 +66,7 @@ export interface Database {
           actual_score_a: number | null
           actual_score_b: number | null
           actual_tiebreaker_winner: 'A' | 'B' | null
+          actual_advance_method: string | null
         }
         Insert: {
           id?: number
@@ -78,6 +79,7 @@ export interface Database {
           actual_score_a?: number | null
           actual_score_b?: number | null
           actual_tiebreaker_winner?: 'A' | 'B' | null
+          actual_advance_method?: string | null
         }
         Update: {
           id?: number
@@ -90,6 +92,7 @@ export interface Database {
           actual_score_a?: number | null
           actual_score_b?: number | null
           actual_tiebreaker_winner?: 'A' | 'B' | null
+          actual_advance_method?: string | null
         }
         Relationships: any[]
       }

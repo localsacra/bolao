@@ -43,6 +43,15 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
       pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner
     ) {
       points += 5;
+
+      // Advance method bonus (+3 pts)
+      if (
+        pred.advance_method &&
+        match.actual_advance_method &&
+        pred.advance_method === match.actual_advance_method
+      ) {
+        points += 3;
+      }
     }
   } else {
     if (exactScore && correctResult) points += 12;

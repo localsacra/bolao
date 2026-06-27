@@ -62,7 +62,7 @@ export function Admin() {
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
   
   // Tab 1 state
-  const [editingScores, setEditingScores] = useState<Record<number, { a: string, b: string, tiebreaker?: 'A' | 'B' | '' }>>({});
+  const [editingScores, setEditingScores] = useState<Record<number, { a: string, b: string, tiebreaker?: 'A' | 'B' | '', advance_method?: 'Prorrogação' | 'Pênaltis' | '' }>>({});
   const [savingResult, setSavingResult] = useState<number | null>(null);
 
   // Tab 2 state
@@ -145,7 +145,7 @@ export function Admin() {
     setEditingScores(prev => ({
       ...prev,
       [matchId]: {
-        ...(prev[matchId] || { a: '', b: '', tiebreaker: '' }),
+        ...(prev[matchId] || { a: '', b: '', tiebreaker: '', advance_method: '' }),
         [team]: val
       }
     }));
@@ -155,8 +155,18 @@ export function Admin() {
     setEditingScores(prev => ({
       ...prev,
       [matchId]: {
-        ...(prev[matchId] || { a: '', b: '', tiebreaker: '' }),
+        ...(prev[matchId] || { a: '', b: '', tiebreaker: '', advance_method: '' }),
         tiebreaker: val
+      }
+    }));
+  };
+
+  const handleAdvanceMethodChange = (matchId: number, val: 'Prorrogação' | 'Pênaltis' | '') => {
+    setEditingScores(prev => ({
+      ...prev,
+      [matchId]: {
+        ...(prev[matchId] || { a: '', b: '', tiebreaker: '', advance_method: '' }),
+        advance_method: val
       }
     }));
   };
@@ -176,6 +186,7 @@ export function Admin() {
     const isKnockout = match && match.phase !== 'group';
     const isDraw = actual_score_a === actual_score_b;
     let actual_tiebreaker_winner: 'A' | 'B' | null = null;
+    let actual_advance_method: string | null = null;
 
     if (isKnockout && isDraw) {
       if (scores.tiebreaker === 'A' || scores.tiebreaker === 'B') {
@@ -185,10 +196,18 @@ export function Admin() {
         setSavingResult(null);
         return;
       }
+
+      if (scores.advance_method === 'Prorrogação' || scores.advance_method === 'Pênaltis') {
+        actual_advance_method = scores.advance_method;
+      } else {
+        showToast(lang === 'pt' ? 'Selecione como avançou (Prorrogação ou Pênaltis)' : 'Select how they advanced (Extra Time or Penalties)', 'error');
+        setSavingResult(null);
+        return;
+      }
     }
 
     const { error } = await supabase.from('matches')
-      .update({ actual_score_a, actual_score_b, actual_tiebreaker_winner })
+      .update({ actual_score_a, actual_score_b, actual_tiebreaker_winner, actual_advance_method })
       .eq('id', matchId);
 
     if (error) {
@@ -953,28 +972,54 @@ export function Admin() {
 
         {/* Tie-breaker dropdown / display */}
         {isKnockout && isCurrentDraw && (!hasResult || isEditing) && (
-          <div className="mt-3 pt-3 border-t border-slate-700 flex items-center gap-2 justify-center">
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-              {lang === 'pt' ? 'Vencedor do desempate:' : 'Tie-breaker Winner:'}
-            </span>
-            <select
-              value={editingScores[match.id]?.tiebreaker ?? (hasResult ? (match.actual_tiebreaker_winner || '') : '')}
-              onChange={e => handleTiebreakerChange(match.id, e.target.value as 'A' | 'B' | '')}
-              className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-emerald-500 animate-in fade-in"
-            >
-              <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
-              <option value="A">{match.team_a}</option>
-              <option value="B">{match.team_b}</option>
-            </select>
+          <div className="mt-3 pt-3 border-t border-slate-700 flex flex-col sm:flex-row gap-3 items-center justify-center animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                {lang === 'pt' ? 'Vencedor:' : 'Winner:'}
+              </span>
+              <select
+                value={editingScores[match.id]?.tiebreaker ?? (hasResult ? (match.actual_tiebreaker_winner || '') : '')}
+                onChange={e => handleTiebreakerChange(match.id, e.target.value as 'A' | 'B' | '')}
+                className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
+                <option value="A">{match.team_a}</option>
+                <option value="B">{match.team_b}</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                {lang === 'pt' ? 'Como avançou?:' : 'How?:'}
+              </span>
+              <select
+                value={editingScores[match.id]?.advance_method ?? (hasResult ? (match.actual_advance_method || '') : '')}
+                onChange={e => handleAdvanceMethodChange(match.id, e.target.value as 'Prorrogação' | 'Pênaltis' | '')}
+                className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm font-semibold outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">{lang === 'pt' ? 'Selecione...' : 'Select...'}</option>
+                <option value="Prorrogação">{lang === 'pt' ? 'Prorrogação' : 'Extra Time'}</option>
+                <option value="Pênaltis">{lang === 'pt' ? 'Pênaltis' : 'Penalties'}</option>
+              </select>
+            </div>
           </div>
         )}
 
         {isKnockout && match.actual_score_a === match.actual_score_b && hasResult && !isEditing && (
-          <div className="mt-3 pt-3 border-t border-slate-700/50 text-center text-xs text-emerald-400 font-semibold">
-            {lang === 'pt' ? 'Vencedor do desempate: ' : 'Tie-breaker Winner: '}
-            <span className="text-white">
-              {match.actual_tiebreaker_winner === 'A' ? match.team_a : match.actual_tiebreaker_winner === 'B' ? match.team_b : (lang === 'pt' ? 'Não definido' : 'Not set')}
-            </span>
+          <div className="mt-3 pt-3 border-t border-slate-700/50 text-center text-xs text-emerald-400 font-semibold flex flex-col gap-1 items-center">
+            <div>
+              {lang === 'pt' ? 'Vencedor do desempate: ' : 'Tie-breaker Winner: '}
+              <span className="text-white font-bold">
+                {match.actual_tiebreaker_winner === 'A' ? match.team_a : match.actual_tiebreaker_winner === 'B' ? match.team_b : (lang === 'pt' ? 'Não definido' : 'Not set')}
+              </span>
+            </div>
+            {match.actual_advance_method && (
+              <div>
+                {lang === 'pt' ? 'Como avançou: ' : 'How they advanced: '}
+                <span className="text-white font-bold">
+                  {match.actual_advance_method === 'Prorrogação' ? (lang === 'pt' ? 'Prorrogação' : 'Extra Time') : (lang === 'pt' ? 'Pênaltis' : 'Penalties')}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -996,7 +1041,8 @@ export function Admin() {
                   [match.id]: {
                     a: String(match.actual_score_a),
                     b: String(match.actual_score_b),
-                    tiebreaker: match.actual_tiebreaker_winner || ''
+                    tiebreaker: match.actual_tiebreaker_winner || '',
+                    advance_method: (match.actual_advance_method as any) || ''
                   }
                 }));
               }}
