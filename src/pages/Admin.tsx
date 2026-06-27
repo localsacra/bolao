@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
-import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
 import { useLang } from '../contexts/LanguageContext';
@@ -71,6 +71,7 @@ export function Admin() {
     phase: 'round_of_32', team_a: '', team_b: '', match_date: '', deadline: ''
   });
   const [savingMatch, setSavingMatch] = useState(false);
+  const [lockingMatchId, setLockingMatchId] = useState<number | null>(null);
 
   // Tab 3 state
   const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
@@ -249,6 +250,63 @@ export function Admin() {
       if (data) setMatches(data);
     }
     setSavingMatch(false);
+  };
+
+  const lockMatchNow = async (matchId: number) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    if (match.phase === 'group') {
+      showToast(
+        lang === 'pt' ? 'Partidas da fase de grupos não podem ser bloqueadas manualmente' : 'Group stage matches cannot be locked manually',
+        'error'
+      );
+      return;
+    }
+
+    const confirmMsg = lang === 'pt'
+      ? 'Bloquear esta partida agora? Os jogadores não poderão mais editar seus palpites.'
+      : 'Lock this match now? Players will no longer be able to edit their predictions.';
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setLockingMatchId(matchId);
+    const nowIso = new Date().toISOString();
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update({ deadline: nowIso })
+        .eq('id', matchId);
+
+      if (error) {
+        console.error(error);
+        showToast(
+          lang === 'pt' ? `Erro ao bloquear partida: ${error.message}` : `Error locking match: ${error.message}`,
+          'error'
+        );
+      } else {
+        setMatches(prev =>
+          prev.map(m =>
+            m.id === matchId ? { ...m, deadline: nowIso } : m
+          )
+        );
+        showToast(
+          lang === 'pt' ? 'Partida bloqueada com sucesso!' : 'Match locked successfully!',
+          'success'
+        );
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(
+        lang === 'pt' ? `Erro inesperado: ${err.message || err}` : `Unexpected error: ${err.message || err}`,
+        'error'
+      );
+    } finally {
+      setLockingMatchId(null);
+    }
   };
 
   // JOGADORES (TAB 3)
@@ -971,22 +1029,48 @@ export function Admin() {
         </div>
 
         <div className="space-y-3">
-          {knockoutMatches.map(m => (
-            <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase, lang)}</div>
-                <div className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <FlagIcon country={m.team_a} size="lg" />
-                  <span>{m.team_a} vs {m.team_b}</span>
-                  <FlagIcon country={m.team_b} size="lg" />
+          {knockoutMatches.map(m => {
+            const isLocked = new Date() > new Date(m.deadline);
+            return (
+              <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex justify-between items-center gap-4">
+                <div>
+                  <div className="text-xs text-emerald-400 font-medium mb-1 uppercase tracking-wider">{formatPhaseName(m.phase, lang)}</div>
+                  <div className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <FlagIcon country={m.team_a} size="lg" />
+                    <span>{m.team_a} vs {m.team_b}</span>
+                    <FlagIcon country={m.team_b} size="lg" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right text-xs text-slate-400">
+                    {lang === 'pt' ? 'Data' : 'Date'}: {formatMatchTime(m.match_date)}<br/>
+                    Deadline: {formatMatchTime(m.deadline)}
+                  </div>
+                  <div className="shrink-0">
+                    {isLocked ? (
+                      <span className="inline-flex items-center gap-1 bg-red-950/30 text-red-400 border border-red-900/50 px-2.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider">
+                        <Lock className="w-3.5 h-3.5" />
+                        {lang === 'pt' ? 'Bloqueado' : 'Locked'}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => lockMatchNow(m.id)}
+                        disabled={lockingMatchId === m.id}
+                        className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                      >
+                        {lockingMatchId === m.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Lock className="w-3.5 h-3.5" />
+                        )}
+                        {lang === 'pt' ? 'Bloquear Agora' : 'Lock Now'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="text-right text-xs text-slate-400">
-                {lang === 'pt' ? 'Data' : 'Date'}: {formatMatchTime(m.match_date)}<br/>
-                Deadline: {formatMatchTime(m.deadline)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {knockoutMatches.length === 0 && (
             <div className="text-center text-slate-500 py-8">
               {lang === 'pt' ? 'Nenhuma partida de mata-mata cadastrada.' : 'No knockout matches registered.'}
