@@ -656,6 +656,12 @@ export function PlayerPredictions() {
               const actPos = actual.position_1 === pick ? '1' : actual.position_2 === pick ? '2' : actual.position_3 === pick ? '3' : '4';
               const predQualify = true; // since it was picked in top 2
               const didQualify = actPos === '1' || actPos === '2' || (actPos === '3' && actualThirdPlacesAdvanced.includes(pick));
+              
+              if (actPos === '3' && actualThirdPlacesAdvanced.includes(pick) && thirdPlacePicks.includes(pick)) {
+                // Points awarded via 3rd-place qualifiers section to avoid double-counting
+                return 0;
+              }
+
               return calculateGroupPositionPoints(predPos, actPos, predQualify, didQualify);
             };
 

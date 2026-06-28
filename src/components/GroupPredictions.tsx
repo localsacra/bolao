@@ -370,6 +370,12 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
               const actPos = actual.position_1 === team ? '1' : actual.position_2 === team ? '2' : actual.position_3 === team ? '3' : '4';
               const predQualify = predPos === '1' || predPos === '2' || predPos === '3';
               const didQualify = actPos === '1' || actPos === '2' || (actPos === '3' && actualThirdPlacesAdvanced.includes(team));
+              
+              if ((predPos === '1' || predPos === '2') && actPos === '3' && actualThirdPlacesAdvanced.includes(team) && thirdPlaceSelections.includes(team)) {
+                // Points awarded via 3rd-place qualifiers section to avoid double-counting
+                return;
+              }
+
               pointsEarned += calculateGroupPositionPoints(predPos, actPos, predQualify, didQualify);
             });
           }

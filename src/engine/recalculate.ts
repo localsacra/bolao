@@ -133,6 +133,13 @@ export const recalculateScores = async (matchId?: number) => {
       });
     }
 
+    // Build the set of confirmed 3rd-place qualifiers from official standings
+    const confirmedThirdPlaceQualifiers = new Set<string>(
+      Object.values(officialStandingsRecord)
+        .map(g => g.position_3)
+        .filter((t): t is string => t !== '' && t != null)
+    );
+
     // Map player group predictions by player_id -> group_name -> prediction
     const groupPredsMap = new Map<string, Map<string, any>>();
     if (allGroupPredictionsRes.data) {
@@ -177,16 +184,40 @@ export const recalculateScores = async (matchId?: number) => {
 
       // Calculate third-place qualifier points (using the new signature)
       const playerThirdPlaces: string[] = [];
+      const playerThirdPlacesSet = new Set<string>();
       if (playerGroupPreds) {
         playerGroupPreds.forEach(gp => {
           if (gp.position_3 && typeof gp.position_3 === 'string' && gp.position_3.trim() !== '') {
             playerThirdPlaces.push(gp.position_3);
+            playerThirdPlacesSet.add(gp.position_3);
           }
         });
       }
 
       const thirdPlacePoints = calculateThirdPlaceQualifierPoints(playerThirdPlaces, officialStandingsRecord);
-      const totalGroupPoints = groupPoints + thirdPlacePoints;
+
+      // Cross-slot credit: position_1 or position_2 pick that ended up as a 3rd-place qualifier
+      let crossSlotPoints = 0;
+      if (playerGroupPreds) {
+        playerGroupPreds.forEach((gp, groupName) => {
+          const official = officialStandingsRecord[groupName];
+          if (!official) return;
+
+          const p1 = gp.position_1;
+          const p2 = gp.position_2;
+
+          // Avoid double-counting: if player also predicted this team in position_3, 
+          // those points are already awarded in the 3rd-place section
+          if (p1 && confirmedThirdPlaceQualifiers.has(p1) && !playerThirdPlacesSet.has(p1)) {
+            crossSlotPoints += 10;
+          }
+          if (p2 && confirmedThirdPlaceQualifiers.has(p2) && !playerThirdPlacesSet.has(p2)) {
+            crossSlotPoints += 10;
+          }
+        });
+      }
+
+      const totalGroupPoints = groupPoints + thirdPlacePoints + crossSlotPoints;
 
       const existing = existingScoresMap.get(pId) || { special_points: 0, id: undefined };
       
