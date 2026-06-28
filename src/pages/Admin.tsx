@@ -208,18 +208,10 @@ export function Admin() {
     if (isKnockout && isDraw) {
       if (scores.tiebreaker === 'A' || scores.tiebreaker === 'B') {
         actual_tiebreaker_winner = scores.tiebreaker;
-      } else {
-        showToast(lang === 'pt' ? 'Selecione o vencedor do desempate' : 'Select the tie-breaker winner', 'error');
-        setSavingResult(null);
-        return;
       }
 
       if (scores.advance_method === 'Prorrogação' || scores.advance_method === 'Pênaltis') {
         actual_advance_method = scores.advance_method;
-      } else {
-        showToast(lang === 'pt' ? 'Selecione como avançou (Prorrogação ou Pênaltis)' : 'Select how they advanced (Extra Time or Penalties)', 'error');
-        setSavingResult(null);
-        return;
       }
     }
 
