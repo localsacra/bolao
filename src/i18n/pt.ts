@@ -58,6 +58,7 @@ export const pt = {
     limitWarning: "Você já atingiu o limite de 8 terceiros colocados. Desmarque algum antes de selecionar outro.",
     viewByGroup: "Por Grupo",
     viewByDate: "Por Data",
+    scored: "pontuados",
   },
 
   // Leaderboard

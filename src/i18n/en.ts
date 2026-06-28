@@ -54,6 +54,7 @@ export const en = {
     limitWarning: "You have already reached the limit of 8 third-place qualifiers. Deselect one before selecting another.",
     viewByGroup: "By Group",
     viewByDate: "By Date",
+    scored: "scored",
   },
 
   leaderboard: {

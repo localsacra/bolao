@@ -128,6 +128,7 @@ export function Predictions() {
   const isSpecialLocked = new Date() >= GROUP_STAGE_LOCK;
   const [matches, setMatches] = useState<Match[]>([]);
   const [expandedMatches, setExpandedMatches] = useState<Record<number, boolean>>({});
+  const [groupStageExpanded, setGroupStageExpanded] = useState<boolean | null>(null);
 
   const toggleExpand = (matchId: number) => {
     setExpandedMatches(prev => ({
@@ -493,6 +494,18 @@ export function Predictions() {
     );
   }
 
+  const groupMatches = matches.filter(m => m.phase === 'group' && (activeTab === 'Todos' || m.group_name === activeTab));
+  const scoredGroupCount = groupMatches.filter(m => m.actual_score_a !== null && m.actual_score_b !== null).length;
+  const totalGroupCount = groupMatches.length;
+  const allGroupMatchesScored = groupMatches.length > 0 && scoredGroupCount === totalGroupCount;
+  const isGroupStageExpanded = groupStageExpanded ?? !allGroupMatchesScored;
+
+  const groupStagePoints = groupMatches.reduce((sum, m) => {
+    const pred = localPredictions[m.id];
+    if (!pred) return sum;
+    return sum + calculatePoints(m, pred);
+  }, 0);
+
   const filteredMatches = matches.filter(m => activeTab === 'Todos' || m.group_name === activeTab);
   
   const groupedMatches: Record<string, Match[]> = {};
@@ -665,65 +678,106 @@ export function Predictions() {
           .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99))
           .map(([phase, phaseMatches]) => (
           <div key={phase} className="space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2 pt-2">
-              <h2 className="text-xl font-bold text-emerald-400 capitalize">
-                {formatPhaseName(phase, lang)}
-              </h2>
-              {phase === 'group' && (
-                <div className="flex bg-slate-950 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
-                  <button
-                    onClick={() => handleViewModeChange('group')}
-                    className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                      viewMode === 'group'
-                        ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                        : 'hover:text-slate-205 hover:bg-slate-800/40'
-                    }`}
-                  >
-                    {t(lang, 'predictions.viewByGroup')}
-                  </button>
-                  <button
-                    onClick={() => handleViewModeChange('date')}
-                    className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                      viewMode === 'date'
-                        ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                        : 'hover:text-slate-205 hover:bg-slate-800/40'
-                    }`}
-                  >
-                    {t(lang, 'predictions.viewByDate')}
-                  </button>
-                </div>
-              )}
-            </div>
-            
             {phase === 'group' ? (
-              viewMode === 'date' ? (
-                // By Date: all group stage matches displayed in a single flat list ordered by match_date ASC
-                <div className="space-y-3 mt-4">
-                  {[...phaseMatches]
-                    .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
-                    .map(m => renderMatchCard(m))}
-                </div>
-              ) : (
-                // By Group (default): grouped by group_name
-                Object.entries(
-                  phaseMatches.reduce((acc, m) => {
-                    if (!acc[m.group_name]) acc[m.group_name] = [];
-                    acc[m.group_name].push(m);
-                    return acc;
-                  }, {} as Record<string, Match[]>)
-                ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
-                  <div key={groupName} className="space-y-3">
-                    <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit mt-4">
-                      {t(lang, 'predictions.group')} {groupName}
-                    </h3>
-                    {gMatches.map(m => renderMatchCard(m))}
+              <div className="space-y-4">
+                <button
+                  onClick={() => setGroupStageExpanded(prev => !prev)}
+                  aria-expanded={isGroupStageExpanded}
+                  aria-label={isGroupStageExpanded ? (lang === 'pt' ? 'Recolher Fase de Grupos' : 'Collapse Group Stage') : (lang === 'pt' ? 'Expandir Fase de Grupos' : 'Expand Group Stage')}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-white capitalize">
+                      {formatPhaseName(phase, lang)}
+                    </span>
+                    <span className="text-sm text-slate-400 hidden sm:inline">
+                      {scoredGroupCount}/{totalGroupCount} {t(lang, 'predictions.scored')}
+                    </span>
+                    <span className="text-xs text-slate-400 sm:hidden">
+                      ({scoredGroupCount}/{totalGroupCount})
+                    </span>
                   </div>
-                ))
-              )
+
+                  <div className="flex items-center gap-2">
+                    {groupStagePoints > 0 && (
+                      <span className="text-sm font-semibold text-emerald-400">
+                        +{groupStagePoints} pts
+                      </span>
+                    )}
+                    <ChevronDown
+                      className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${
+                        isGroupStageExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                {isGroupStageExpanded && (
+                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex justify-end">
+                      <div className="flex bg-slate-955 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
+                        <button
+                          onClick={() => handleViewModeChange('group')}
+                          className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                            viewMode === 'group'
+                              ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                              : 'hover:text-slate-205 hover:bg-slate-800/40'
+                          }`}
+                        >
+                          {t(lang, 'predictions.viewByGroup')}
+                        </button>
+                        <button
+                          onClick={() => handleViewModeChange('date')}
+                          className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                            viewMode === 'date'
+                              ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                              : 'hover:text-slate-205 hover:bg-slate-800/40'
+                          }`}
+                        >
+                          {t(lang, 'predictions.viewByDate')}
+                        </button>
+                      </div>
+                    </div>
+
+                    {viewMode === 'date' ? (
+                      // By Date: all group stage matches displayed in a single flat list ordered by match_date ASC
+                      <div className="space-y-3">
+                        {[...phaseMatches]
+                          .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+                          .map(m => renderMatchCard(m))}
+                      </div>
+                    ) : (
+                      // By Group (default): grouped by group_name
+                      Object.entries(
+                        phaseMatches.reduce((acc, m) => {
+                          if (!acc[m.group_name]) acc[m.group_name] = [];
+                          acc[m.group_name].push(m);
+                          return acc;
+                        }, {} as Record<string, Match[]>)
+                      ).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, gMatches]) => (
+                        <div key={groupName} className="space-y-3">
+                          <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit mt-4">
+                            {t(lang, 'predictions.group')} {groupName}
+                          </h3>
+                          {gMatches.map(m => renderMatchCard(m))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
-              // Knockout matches just listed
-              <div className="space-y-3 mt-4">
-                {phaseMatches.map(m => renderMatchCard(m))}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2 pt-2">
+                  <h2 className="text-xl font-bold text-emerald-400 capitalize">
+                    {formatPhaseName(phase, lang)}
+                  </h2>
+                </div>
+                
+                {/* Knockout matches just listed */}
+                <div className="space-y-3 mt-4">
+                  {phaseMatches.map(m => renderMatchCard(m))}
+                </div>
               </div>
             )}
           </div>
