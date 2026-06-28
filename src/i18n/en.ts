@@ -125,6 +125,16 @@ export const en = {
     offlineReady: "App ready for offline use",
   },
 
+  // Score Editor
+  scoreEditor: {
+    title: "Match Score Editor",
+    subtitle: "Modify only the match scores below.",
+    saveSuccess: "Result saved and points recalculated!",
+    saveError: "Error saving result.",
+    unauthorized: "Unauthorized access.",
+    noMatches: "No matches found.",
+  },
+
   common: {
     loading: "Loading...",
     error: "Error",

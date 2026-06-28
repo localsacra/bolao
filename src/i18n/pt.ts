@@ -135,6 +135,16 @@ export const pt = {
     offlineReady: "Aplicativo pronto para uso offline",
   },
 
+  // Score Editor
+  scoreEditor: {
+    title: "Editor de Resultados",
+    subtitle: "Modifique apenas os placares das partidas abaixo.",
+    saveSuccess: "Resultado salvo e pontos recalculados!",
+    saveError: "Erro ao salvar resultado.",
+    unauthorized: "Acesso não autorizado.",
+    noMatches: "Nenhuma partida encontrada.",
+  },
+
   // Common
   common: {
     loading: "Carregando...",

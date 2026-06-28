@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, Navigate } from 'react-router-dom';
-import { Trophy, ListOrdered, User, ShieldAlert } from 'lucide-react';
+import { Trophy, ListOrdered, User, ShieldAlert, ClipboardPen } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { ProfileSetupModal } from './ProfileSetupModal';
 import { useLang } from '../contexts/LanguageContext';
@@ -7,12 +7,12 @@ import { t } from '../i18n';
 import { LanguageToggle } from './LanguageToggle';
 
 export function Layout() {
-  const { user, profile, isLoading, isAdmin } = useAuthStore();
+  const { user, profile, isLoading, isAdmin, isScoreEditor } = useAuthStore();
   const location = useLocation();
   const { lang } = useLang();
 
   const isProtectedRoute = 
-    ['/predictions', '/leaderboard', '/profile', '/admin'].includes(location.pathname) ||
+    ['/predictions', '/leaderboard', '/profile', '/admin', '/score-editor'].includes(location.pathname) ||
     location.pathname.startsWith('/player/');
 
   if (isLoading) {
@@ -27,6 +27,15 @@ export function Layout() {
     return <Navigate to="/login" replace />;
   }
 
+  // Route Authorization Guards
+  if (user && location.pathname === '/admin' && !isAdmin) {
+    return <Navigate to="/predictions" replace />;
+  }
+
+  if (user && location.pathname === '/score-editor' && !isScoreEditor && !isAdmin) {
+    return <Navigate to="/predictions" replace />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen pb-16 bg-slate-900 text-slate-100">
       <ProfileSetupModal />
@@ -37,6 +46,21 @@ export function Layout() {
           {t(lang, 'auth.title')}
         </h1>
         <div className="flex items-center gap-2">
+          {isScoreEditor && !isAdmin && (
+            <NavLink
+              to="/score-editor"
+              className={({ isActive }) =>
+                `p-1.5 rounded-lg border transition-all ${
+                  isActive
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'border-white/20 text-white/80 hover:bg-white/10'
+                }`
+              }
+              title={t(lang, 'scoreEditor.title')}
+            >
+              <ClipboardPen size={18} />
+            </NavLink>
+          )}
           {isAdmin && (
             <NavLink
               to="/admin"

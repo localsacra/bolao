@@ -6,6 +6,7 @@ import { Predictions } from './pages/Predictions';
 import { Leaderboard } from './pages/Leaderboard';
 import { PlayerPredictions } from './pages/PlayerPredictions';
 import { Admin } from './pages/Admin';
+import { ScoreEditor } from './pages/ScoreEditor';
 import { Profile } from './pages/Profile';
 import { useAuthStore } from './store/useAuthStore';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -29,6 +30,7 @@ function App() {
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="player/:playerId" element={<PlayerPredictions />} />
             <Route path="admin" element={<Admin />} />
+            <Route path="score-editor" element={<ScoreEditor />} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>

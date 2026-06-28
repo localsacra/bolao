@@ -33,6 +33,7 @@ export interface Database {
           name: string
           email: string
           is_admin: boolean
+          is_score_editor: boolean
           is_hidden: boolean
           created_at: string
         }
@@ -41,6 +42,7 @@ export interface Database {
           name: string
           email: string
           is_admin?: boolean
+          is_score_editor?: boolean
           is_hidden?: boolean
           created_at?: string
         }
@@ -49,6 +51,7 @@ export interface Database {
           name?: string
           email?: string
           is_admin?: boolean
+          is_score_editor?: boolean
           is_hidden?: boolean
           created_at?: string
         }

@@ -10,6 +10,7 @@ interface AuthState {
   profile: Profile | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isScoreEditor: boolean;
   initialize: () => void;
   login: (email: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
@@ -24,9 +25,9 @@ export const useAuthStore = create<AuthState>((set) => {
       .single()
     
     if (data) {
-      set({ profile: data, isAdmin: data.is_admin, isLoading: false })
+      set({ profile: data, isAdmin: data.is_admin, isScoreEditor: data.is_score_editor, isLoading: false })
     } else {
-      set({ profile: null, isAdmin: false, isLoading: false })
+      set({ profile: null, isAdmin: false, isScoreEditor: false, isLoading: false })
     }
   }
 
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>((set) => {
     profile: null,
     isLoading: true,
     isAdmin: false,
+    isScoreEditor: false,
 
     initialize: () => {
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => {
         if (session?.user) {
           fetchProfile(session.user.id)
         } else {
-          set({ isLoading: false, profile: null, isAdmin: false })
+          set({ isLoading: false, profile: null, isAdmin: false, isScoreEditor: false })
         }
       })
 
@@ -51,7 +53,7 @@ export const useAuthStore = create<AuthState>((set) => {
         if (session?.user) {
           fetchProfile(session.user.id)
         } else {
-          set({ profile: null, isAdmin: false, isLoading: false })
+          set({ profile: null, isAdmin: false, isScoreEditor: false, isLoading: false })
         }
       })
     },
