@@ -181,14 +181,10 @@ export function PlayerPredictions() {
 
   // Derive which third-place teams actually qualified
   const actualThirdPlacesAdvanced = useMemo(() => {
-    const allThirdPlaces = Object.values(actualStandings).map(a => a.position_3).filter(t => t);
-    const knockoutTeams = new Set(
-      matches
-        .filter(m => m.phase !== 'group')
-        .flatMap(m => [m.team_a, m.team_b])
-    );
-    return allThirdPlaces.filter(t => knockoutTeams.has(t));
-  }, [actualStandings, matches]);
+    return Object.values(actualStandings)
+      .map(a => a.position_3)
+      .filter((t): t is string => typeof t === 'string' && t.trim() !== '');
+  }, [actualStandings]);
 
   const thirdPlacePicks = useMemo(() => {
     return Object.values(groupPredictions)
@@ -728,8 +724,14 @@ export function PlayerPredictions() {
             <h3 className="text-md font-bold text-slate-200 flex items-center gap-2">
               🏆 {t(lang, 'predictions.thirdQualifiers')}
             </h3>
-            {actualThirdPlacesAdvanced.length > 0 && (
+            {actualThirdPlacesAdvanced.length === 0 ? (
+              <span className="bg-slate-500/10 text-slate-400 border border-slate-500/20 text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">
+                {lang === 'pt' ? 'Aguardando' : 'Pending'}
+              </span>
+            ) : (
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
+                {lang === 'pt' ? 'Acertos: ' : 'Correct: '}
+                {thirdPlacePicks.filter(p => actualThirdPlacesAdvanced.includes(p)).length} / 8 —{' '}
                 +{calculateThirdPlaceQualifierPoints(thirdPlacePicks, actualThirdPlacesAdvanced)} {t(lang, 'predictions.points')}
               </span>
             )}
@@ -743,7 +745,17 @@ export function PlayerPredictions() {
               const showResultStatus = actualThirdPlacesAdvanced.length > 0;
 
               return (
-                <div key={idx} className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex flex-col justify-between min-h-[90px]">
+                <div 
+                  key={idx} 
+                  className={`
+                    p-4 flex flex-col justify-between min-h-[90px] rounded-lg border transition-all
+                    ${showResultStatus && pick 
+                      ? (isCorrect 
+                        ? 'border-emerald-500 bg-emerald-500/5' 
+                        : 'border-red-500/50 bg-red-500/5')
+                      : 'border-slate-800 bg-slate-900/40'}
+                  `}
+                >
                   <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-2">
                     {lang === 'pt' ? `Vaga ${idx + 1}` : `Slot ${idx + 1}`} {gName && `(${lang === 'pt' ? 'Grupo' : 'Group'} ${gName})`}
                   </div>

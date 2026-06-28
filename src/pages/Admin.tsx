@@ -90,6 +90,8 @@ export function Admin() {
   // Tab 4 (Grupos) state
   const [officialStandings, setOfficialStandings] = useState<Record<string, { first: string, second: string }>>({});
   const [savingGroup, setSavingGroup] = useState<Record<string, boolean>>({});
+  const [officialThirdPlaces, setOfficialThirdPlaces] = useState<Record<string, string>>({});
+  const [savingThirdPlaces, setSavingThirdPlaces] = useState(false);
 
   const teamsByGroup = React.useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -128,9 +130,11 @@ export function Admin() {
       if (profilesData) setProfiles(profilesData);
 
       const standingsMap: Record<string, { first: string, second: string }> = {};
+      const thirdPlacesMap: Record<string, string> = {};
       const GROUP_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
       GROUP_NAMES.forEach(g => {
         standingsMap[g] = { first: '', second: '' };
+        thirdPlacesMap[g] = '';
       });
 
       if (officialGroupsData) {
@@ -139,9 +143,13 @@ export function Admin() {
             first: p.position_1 || '',
             second: p.position_2 || ''
           };
+          if (p.position_3) {
+            thirdPlacesMap[p.group_name] = p.position_3;
+          }
         });
       }
       setOfficialStandings(standingsMap);
+      setOfficialThirdPlaces(thirdPlacesMap);
 
       setLoading(false);
     };
@@ -739,8 +747,78 @@ export function Admin() {
     }
   };
 
+  const saveOfficialThirdPlaces = async () => {
+    const GROUP_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+    const selectedCount = Object.values(officialThirdPlaces).filter(t => t).length;
+    if (selectedCount !== 8) {
+      showToast(
+        lang === 'pt' ? 'Você deve selecionar exatamente 8 terceiros colocados!' : 'You must select exactly 8 third-place qualifiers!',
+        'error'
+      );
+      return;
+    }
+
+    setSavingThirdPlaces(true);
+    try {
+      // Fetch the existing official rows to make sure we have position_1 and position_2
+      const { data: existingRows, error: fetchError } = await supabase
+        .from('group_predictions')
+        .select('*')
+        .eq('player_id', '00000000-0000-0000-0000-000000000000');
+
+      if (fetchError) throw fetchError;
+
+      const existingMap = new Map(existingRows?.map(r => [r.group_name, r]) || []);
+
+      const upserts = GROUP_NAMES.map(groupName => {
+        const existing = existingMap.get(groupName);
+        const position1 = existing?.position_1 || '';
+        const position2 = existing?.position_2 || '';
+        const position3 = officialThirdPlaces[groupName] || '';
+        
+        // Find position 4 (the remaining team)
+        const groupTeams = teamsByGroup[groupName] || [];
+        const usedTeams = [position1, position2, position3].filter(t => t);
+        const remainingTeams = groupTeams.filter(t => !usedTeams.includes(t));
+        const position4 = remainingTeams[0] || '';
+
+        return {
+          ...(existing?.id ? { id: existing.id } : {}),
+          player_id: '00000000-0000-0000-0000-000000000000',
+          group_name: groupName,
+          position_1: position1,
+          position_2: position2,
+          position_3: position3,
+          position_4: position3 ? position4 : '' // if no position_3, don't set position_4 officially
+        };
+      });
+
+      const { error: upsertError } = await supabase
+        .from('group_predictions')
+        .upsert(upserts, { onConflict: 'player_id,group_name' });
+
+      if (upsertError) throw upsertError;
+
+      await recalculateScores();
+
+      showToast(
+        lang === 'pt' ? 'Terceiros colocados oficiais salvos e pontos recalculados!' : 'Official third-place qualifiers saved and points recalculated!',
+        'success'
+      );
+    } catch (e) {
+      console.error('Error saving official third-place qualifiers:', e);
+      showToast(
+        lang === 'pt' ? 'Erro ao salvar terceiros colocados oficiais.' : 'Error saving official third-place qualifiers.',
+        'error'
+      );
+    } finally {
+      setSavingThirdPlaces(false);
+    }
+  };
+
   const renderGrupos = () => {
     const GROUP_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+    const selectedThirdCount = Object.values(officialThirdPlaces).filter(t => t).length;
 
     return (
       <div className="space-y-6">
@@ -844,6 +922,99 @@ export function Admin() {
               </div>
             );
           })}
+        </div>
+
+        {/* Official 3rd Place Qualifiers Section */}
+        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5 shadow-lg mt-8">
+          <div className="border-b border-slate-700 pb-3 mb-4">
+            <h3 className="text-lg font-bold text-emerald-400">
+              🏆 {lang === 'pt' ? 'Terceiros Colocados Classificados' : 'Official 3rd Place Qualifiers'}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {lang === 'pt'
+                ? 'Selecione as 8 seleções que se classificaram em 3º lugar e avançaram para a próxima fase.'
+                : 'Select the 8 teams that advanced to the Round of 32 from 3rd place.'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {GROUP_NAMES.map(groupName => {
+              const groupTeams = teamsByGroup[groupName] || [];
+              const standing = officialStandings[groupName] || { first: '', second: '' };
+              const selectedThird = officialThirdPlaces[groupName] || '';
+              
+              // Enable dropdown only if first and second place are set
+              const isGroupDefined = standing.first && standing.second;
+              
+              // Remaining teams that can be the 3rd place qualifier (i.e. not 1st or 2nd place)
+              const remainingTeams = groupTeams.filter(t => t !== standing.first && t !== standing.second);
+
+              return (
+                <div key={groupName} className="bg-slate-900/40 border border-slate-800/60 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                      {lang === 'pt' ? 'GRUPO' : 'GROUP'} {groupName}
+                    </h4>
+                    {/* Optional currently-saved indicator */}
+                    {selectedThird && (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/30 px-1.5 py-0.5 rounded">
+                        {lang === 'pt' ? 'Salvo: ' : 'Saved: '} {selectedThird}
+                      </span>
+                    )}
+                  </div>
+                  {isGroupDefined ? (
+                    <select
+                      value={selectedThird}
+                      onChange={e => {
+                        setOfficialThirdPlaces(prev => ({
+                          ...prev,
+                          [groupName]: e.target.value
+                        }));
+                      }}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+                    >
+                      <option value="">-- {lang === 'pt' ? 'Não se classificou' : 'Did not qualify'} --</option>
+                      {remainingTeams.map(team => (
+                        <option key={team} value={team}>
+                          {team}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-xs text-slate-500 italic py-2 bg-slate-950/20 px-3 rounded-md border border-dashed border-slate-850">
+                      {lang === 'pt' ? 'Defina o 1º e 2º colocado primeiro' : 'Define 1st and 2nd place first'}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-slate-700 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div className="text-sm font-semibold">
+              <span className={selectedThirdCount === 8 ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
+                {lang === 'pt' ? 'Selecionados: ' : 'Selected: '}
+                {selectedThirdCount} / 8
+              </span>
+            </div>
+            <button
+              onClick={saveOfficialThirdPlaces}
+              disabled={selectedThirdCount !== 8 || savingThirdPlaces}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingThirdPlaces ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{lang === 'pt' ? 'Salvando...' : 'Saving...'}</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>{lang === 'pt' ? 'Salvar Terceiros Colocados' : 'Save 3rd Place Qualifiers'}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );

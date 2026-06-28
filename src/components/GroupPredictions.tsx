@@ -78,14 +78,10 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
 
   // Derive the actual advancing 3rd-placed teams
   const actualThirdPlacesAdvanced = useMemo(() => {
-    const allThirdPlaces = Object.values(actualStandings).map(a => a.position_3).filter(t => t);
-    const knockoutTeams = new Set(
-      matches
-        .filter(m => m.phase !== 'group')
-        .flatMap(m => [m.team_a, m.team_b])
-    );
-    return allThirdPlaces.filter(t => knockoutTeams.has(t));
-  }, [actualStandings, matches]);
+    return Object.values(actualStandings)
+      .map(a => a.position_3)
+      .filter((t): t is string => typeof t === 'string' && t.trim() !== '');
+  }, [actualStandings]);
 
   useEffect(() => {
     if (!user) return;
@@ -560,7 +556,7 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
                           <div className="flex items-center gap-1">
                             {showResultStatus && isSelected && (
                                isCorrect ? (
-                                 <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 {t(lang, 'predictions.points')}</span>
+                                 <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +10 {t(lang, 'predictions.points')}</span>
                                ) : (
                                  <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 {t(lang, 'predictions.points')}</span>
                                )

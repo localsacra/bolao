@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { calculatePoints, calculateGroupPositionPoints } from './scoring';
+import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from './scoring';
 
 export const recalculateScores = async (matchId?: number) => {
   if (matchId !== undefined) {
@@ -117,10 +117,17 @@ export const recalculateScores = async (matchId?: number) => {
 
     // Map official group standings (A-L)
     const officialGroups = new Map<string, any>();
+    const officialThirdPlaces: string[] = [];
+    const officialThirdPlaceGroups = new Set<string>();
+
     if (officialGroupPredsRes.data) {
       officialGroupPredsRes.data.forEach(g => {
         if (g.position_1 && g.position_2) {
           officialGroups.set(g.group_name, g);
+        }
+        if (g.position_3 && typeof g.position_3 === 'string' && g.position_3.trim() !== '') {
+          officialThirdPlaces.push(g.position_3);
+          officialThirdPlaceGroups.add(g.group_name);
         }
       });
     }
@@ -167,15 +174,28 @@ export const recalculateScores = async (matchId?: number) => {
         }
       });
 
+      // Calculate third-place qualifier points (only for groups where official position_3 is set)
+      const playerThirdPlaces: string[] = [];
+      if (playerGroupPreds) {
+        playerGroupPreds.forEach(gp => {
+          if (gp.position_3 && typeof gp.position_3 === 'string' && gp.position_3.trim() !== '' && officialThirdPlaceGroups.has(gp.group_name)) {
+            playerThirdPlaces.push(gp.position_3);
+          }
+        });
+      }
+
+      const thirdPlacePoints = calculateThirdPlaceQualifierPoints(playerThirdPlaces, officialThirdPlaces);
+      const totalGroupPoints = groupPoints + thirdPlacePoints;
+
       const existing = existingScoresMap.get(pId) || { special_points: 0, id: undefined };
       
       return {
         ...(existing.id ? { id: existing.id } : {}),
         player_id: pId,
         match_points: matchPoints,
-        group_points: groupPoints,
+        group_points: totalGroupPoints,
         special_points: existing.special_points,
-        total_points: matchPoints + groupPoints + existing.special_points,
+        total_points: matchPoints + totalGroupPoints + existing.special_points,
         updated_at: new Date().toISOString()
       };
     });
