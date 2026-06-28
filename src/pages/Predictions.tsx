@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { Trophy, Medal, Star, Lock, Loader2, XCircle, Award } from 'lucide-react';
+import { Trophy, Medal, Star, Lock, Loader2, XCircle, Award, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
@@ -127,6 +127,15 @@ export function Predictions() {
   const { lang } = useLang();
   const isSpecialLocked = new Date() >= GROUP_STAGE_LOCK;
   const [matches, setMatches] = useState<Match[]>([]);
+  const [expandedMatches, setExpandedMatches] = useState<Record<number, boolean>>({});
+
+  const toggleExpand = (matchId: number) => {
+    setExpandedMatches(prev => ({
+      ...prev,
+      [matchId]: !prev[matchId]
+    }));
+  };
+
   const [localPredictions, setLocalPredictions] = useState<Record<number, Partial<Prediction>>>({});
   const [specialPreds, setSpecialPreds] = useState<Partial<SpecialPredictionRow>>({
     champion: '', vice_champion: '', third_place: '', top_scorer: '', best_player: ''
@@ -736,6 +745,64 @@ export function Predictions() {
     const isDraw = pred.predicted_score_a !== undefined && 
                    pred.predicted_score_a === pred.predicted_score_b;
 
+    const isGroup = match.phase === 'group';
+    const hasRealScore = match.actual_score_a !== null && match.actual_score_b !== null;
+    const canCollapse = isGroup && hasRealScore;
+    const isExpanded = canCollapse ? (expandedMatches[match.id] ?? false) : true;
+
+    if (!isExpanded) {
+      const points = calculatePoints(match, pred);
+      const hasPred = pred.predicted_score_a !== undefined && pred.predicted_score_a !== null;
+      
+      return (
+        <div 
+          key={match.id} 
+          id={`match-${match.id}`} 
+          onClick={() => toggleExpand(match.id)}
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          aria-label={lang === 'pt' ? 'Expandir detalhes da partida' : 'Expand match details'}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(match.id); } }}
+          className="scroll-mt-28 bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-800 hover:border-slate-600 transition-all select-none"
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Team A */}
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className="font-semibold text-sm text-slate-200 truncate text-right hidden sm:inline">{match.team_a}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-right sm:hidden">{match.team_a.substring(0, 3).toUpperCase()}</span>
+              <FlagIcon country={match.team_a} size="sm" />
+            </div>
+
+            {/* Score */}
+            <div className="flex items-center justify-center bg-slate-950/80 px-3 py-1 rounded-md text-sm font-bold text-slate-100 border border-slate-700/30 shrink-0 min-w-[70px]">
+              {match.actual_score_a} - {match.actual_score_b}
+            </div>
+
+            {/* Team B */}
+            <div className="flex items-center gap-2 justify-start flex-1 min-w-0">
+              <FlagIcon country={match.team_b} size="sm" />
+              <span className="font-semibold text-sm text-slate-200 truncate text-left hidden sm:inline">{match.team_b}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-left sm:hidden">{match.team_b.substring(0, 3).toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Points & Chevron */}
+          <div className="flex items-center gap-3 shrink-0">
+            {hasPred && (
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                points > 0 
+                  ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' 
+                  : 'text-slate-400 bg-slate-700/20 border border-slate-750/30'
+              }`}>
+                +{points} {lang === 'pt' ? 'pts' : 'pts'}
+              </span>
+            )}
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={match.id} id={`match-${match.id}`} className={`scroll-mt-28 bg-slate-800/60 border ${isDeadlinePassed ? 'border-slate-700/50 opacity-80' : 'border-slate-700'} rounded-xl p-4 relative transition-all hover:bg-slate-800`}>
         {/* Header */}
@@ -743,6 +810,16 @@ export function Predictions() {
           <div className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
             {formatMatchTime(match.match_date)}
           </div>
+          {canCollapse && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleExpand(match.id); }}
+              aria-expanded={isExpanded}
+              aria-label="Toggle match details"
+              className="p-1 hover:bg-slate-700 rounded-md transition-colors text-slate-400 hover:text-slate-200"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Teams & Score Inputs */}

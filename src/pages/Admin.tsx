@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
-import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
 import { useLang } from '../contexts/LanguageContext';
@@ -64,6 +64,14 @@ export function Admin() {
   // Tab 1 state
   const [editingScores, setEditingScores] = useState<Record<number, { a: string, b: string, tiebreaker?: 'A' | 'B' | '', advance_method?: 'Prorrogação' | 'Pênaltis' | '' }>>({});
   const [savingResult, setSavingResult] = useState<number | null>(null);
+  const [expandedMatches, setExpandedMatches] = useState<Record<number, boolean>>({});
+
+  const toggleExpand = (matchId: number) => {
+    setExpandedMatches(prev => ({
+      ...prev,
+      [matchId]: !prev[matchId]
+    }));
+  };
 
   // Tab 2 state
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
@@ -222,6 +230,8 @@ export function Admin() {
         delete next[matchId];
         return next;
       });
+      // Collapse the card automatically
+      setExpandedMatches(prev => ({ ...prev, [matchId]: false }));
       // Refresh matches to see updated scores
       const { data } = await supabase.from('matches').select('*').order('match_date', { ascending: true });
       if (data) setMatches(data);
@@ -929,9 +939,65 @@ export function Admin() {
     const currentB = editingScores[match.id]?.b ?? (hasResult ? String(match.actual_score_b) : '');
     const isCurrentDraw = currentA !== '' && currentB !== '' && currentA === currentB;
 
+    const isGroup = match.phase === 'group';
+    const canCollapse = isGroup && hasResult;
+    const isExpanded = isEditing ? true : (canCollapse ? (expandedMatches[match.id] ?? false) : true);
+
+    if (!isExpanded) {
+      return (
+        <div 
+          key={match.id} 
+          onClick={() => toggleExpand(match.id)}
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          aria-label={lang === 'pt' ? 'Expandir detalhes da partida' : 'Expand match details'}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(match.id); } }}
+          className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-800 hover:border-slate-600 transition-colors select-none"
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Team A */}
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className="font-semibold text-sm text-slate-200 truncate text-right hidden sm:inline">{match.team_a}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-right sm:hidden">{match.team_a.substring(0, 3).toUpperCase()}</span>
+              <FlagIcon country={match.team_a} size="sm" />
+            </div>
+
+            {/* Score */}
+            <div className="flex items-center justify-center bg-slate-950/80 px-3 py-1 rounded-md text-sm font-bold text-slate-100 border border-slate-700/30 shrink-0 min-w-[70px]">
+              {match.actual_score_a} - {match.actual_score_b}
+            </div>
+
+            {/* Team B */}
+            <div className="flex items-center gap-2 justify-start flex-1 min-w-0">
+              <FlagIcon country={match.team_b} size="sm" />
+              <span className="font-semibold text-sm text-slate-200 truncate text-left hidden sm:inline">{match.team_b}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-left sm:hidden">{match.team_b.substring(0, 3).toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Chevron */}
+          <div className="flex items-center gap-2 shrink-0 text-slate-400">
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-        <div className="text-xs text-slate-400 mb-2">{formatMatchTime(match.match_date)}</div>
+      <div key={match.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 relative">
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-xs text-slate-400">{formatMatchTime(match.match_date)}</div>
+          {canCollapse && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleExpand(match.id); }}
+              aria-expanded={isExpanded}
+              aria-label="Toggle match details"
+              className="p-1 hover:bg-slate-700 rounded-md transition-colors text-slate-400 hover:text-slate-200"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex-1 font-medium flex items-center justify-start gap-2">
             <span>{match.team_a}</span>

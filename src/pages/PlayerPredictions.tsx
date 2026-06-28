@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
-import { ArrowLeft, Trophy, Medal, Star, Award, Lock } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Star, Award, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { 
   calculatePoints, 
   calculateGroupPositionPoints, 
@@ -55,6 +55,14 @@ export function PlayerPredictions() {
   const navigate = useNavigate();
   const { user: currentUser, isLoading: authLoading } = useAuthStore();
   const { lang } = useLang();
+  const [expandedMatches, setExpandedMatches] = useState<Record<number, boolean>>({});
+
+  const toggleExpand = (matchId: number) => {
+    setExpandedMatches(prev => ({
+      ...prev,
+      [matchId]: !prev[matchId]
+    }));
+  };
   
   const [viewMode, setViewMode] = useState<'group' | 'date'>(() => {
     const stored = localStorage.getItem('predictions_view_mode');
@@ -307,6 +315,61 @@ export function PlayerPredictions() {
     const scoreA = hasPred ? pred.predicted_score_a : null;
     const scoreB = hasPred ? pred.predicted_score_b : null;
 
+    const isGroup = match.phase === 'group';
+    const hasRealScore = match.actual_score_a !== null && match.actual_score_b !== null;
+    const canCollapse = isGroup && hasRealScore;
+    const isExpanded = canCollapse ? (expandedMatches[match.id] ?? false) : true;
+
+    if (!isExpanded) {
+      const hasPredictedValue = pred !== undefined && pred.predicted_score_a !== undefined && pred.predicted_score_a !== null;
+      return (
+        <div 
+          key={match.id} 
+          onClick={() => toggleExpand(match.id)}
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          aria-label={lang === 'pt' ? 'Expandir detalhes da partida' : 'Expand match details'}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(match.id); } }}
+          className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-800 hover:border-slate-600 transition-colors select-none"
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Team A */}
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className="font-semibold text-sm text-slate-200 truncate text-right hidden sm:inline">{match.team_a}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-right sm:hidden">{match.team_a.substring(0, 3).toUpperCase()}</span>
+              <FlagIcon country={match.team_a} size="sm" />
+            </div>
+
+            {/* Score */}
+            <div className="flex items-center justify-center bg-slate-950/80 px-3 py-1 rounded-md text-sm font-bold text-slate-100 border border-slate-700/30 shrink-0 min-w-[70px]">
+              {match.actual_score_a} - {match.actual_score_b}
+            </div>
+
+            {/* Team B */}
+            <div className="flex items-center gap-2 justify-start flex-1 min-w-0">
+              <FlagIcon country={match.team_b} size="sm" />
+              <span className="font-semibold text-sm text-slate-200 truncate text-left hidden sm:inline">{match.team_b}</span>
+              <span className="font-semibold text-xs text-slate-200 truncate text-left sm:hidden">{match.team_b.substring(0, 3).toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Points & Chevron */}
+          <div className="flex items-center gap-3 shrink-0">
+            {hasPredictedValue && (
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                points > 0 
+                  ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' 
+                  : 'text-slate-400 bg-slate-700/20 border border-slate-750/30'
+              }`}>
+                +{points} {lang === 'pt' ? 'pts' : 'pts'}
+              </span>
+            )}
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={match.id} className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 relative flex flex-col justify-between hover:bg-slate-800 transition-colors">
         
@@ -315,11 +378,23 @@ export function PlayerPredictions() {
           <span className="text-[10px] font-medium text-slate-400 bg-slate-900/50 px-2 py-1 rounded-md">
             {formatMatchTime(match.match_date)}
           </span>
-          {pred !== undefined && (
-            <span className="text-xs text-slate-400 flex items-center gap-1">
-              {!showPrediction && <Lock className="w-3 h-3 text-slate-500" />} {t(lang, 'predictions.saved')}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {pred !== undefined && (
+              <span className="text-xs text-slate-400 flex items-center gap-1">
+                {!showPrediction && <Lock className="w-3 h-3 text-slate-500" />} {t(lang, 'predictions.saved')}
+              </span>
+            )}
+            {canCollapse && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleExpand(match.id); }}
+                aria-expanded={isExpanded}
+                aria-label="Toggle match details"
+                className="p-1 hover:bg-slate-750 rounded-md transition-colors text-slate-400 hover:text-slate-200"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Flags and Predicted Scores */}
