@@ -76,16 +76,30 @@ export function calculateGroupPositionPoints(
 
 
 export function calculateThirdPlaceQualifierPoints(
-  // Player's predicted list of 8 third-placed teams
-  // that advance to Round of 32
+  // predicted: array of teams the player tipped to advance as 3rd-place qualifiers
   predicted: string[],
-  // Actual 8 third-placed teams that advanced
-  actual: string[]
+  // actualStandings: official group results keyed by group name
+  actualStandings: Record<string, { position_1: string, position_2: string, position_3: string, position_4?: string }>
 ): number {
   let points = 0;
-  // 10 points for each correct third-placed team predicted
   predicted.forEach(team => {
-    if (actual.includes(team)) points += 10;
+    if (!team) return;
+    for (const [_, official] of Object.entries(actualStandings)) {
+      const isTeamInGroup = 
+        official.position_1 === team || 
+        official.position_2 === team || 
+        official.position_3 === team || 
+        official.position_4 === team;
+        
+      if (isTeamInGroup) {
+        if (official.position_3 === team) {
+          points += 15;
+        } else if (official.position_1 === team || official.position_2 === team) {
+          points += 10;
+        }
+        break;
+      }
+    }
   });
   return points;
 }

@@ -192,6 +192,28 @@ export function PlayerPredictions() {
       .filter(t => t && t !== '');
   }, [groupPredictions]);
 
+  const correctThirdPlacePicksCount = useMemo(() => {
+    let count = 0;
+    thirdPlacePicks.forEach(team => {
+      if (!team) return;
+      for (const [_, official] of Object.entries(actualStandings)) {
+        const isTeamInGroup = 
+          official.position_1 === team || 
+          official.position_2 === team || 
+          official.position_3 === team || 
+          official.position_4 === team;
+          
+        if (isTeamInGroup) {
+          if (official.position_3 === team || official.position_1 === team || official.position_2 === team) {
+            count++;
+          }
+          break;
+        }
+      }
+    });
+    return count;
+  }, [thirdPlacePicks, actualStandings]);
+
   const thirdPlaceSlots = useMemo(() => {
     const list = Object.values(groupPredictions)
       .map(gp => ({ team: gp.position_3, group: gp.group_name }))
@@ -731,8 +753,8 @@ export function PlayerPredictions() {
             ) : (
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
                 {lang === 'pt' ? 'Acertos: ' : 'Correct: '}
-                {thirdPlacePicks.filter(p => actualThirdPlacesAdvanced.includes(p)).length} / 8 —{' '}
-                +{calculateThirdPlaceQualifierPoints(thirdPlacePicks, actualThirdPlacesAdvanced)} {t(lang, 'predictions.points')}
+                {correctThirdPlacePicksCount} / 8 —{' '}
+                +{calculateThirdPlaceQualifierPoints(thirdPlacePicks, actualStandings)} {t(lang, 'predictions.points')}
               </span>
             )}
           </div>
@@ -741,7 +763,9 @@ export function PlayerPredictions() {
             {thirdPlaceSlots.map((item, idx) => {
               const pick = item.team;
               const gName = item.group;
-              const isCorrect = pick && actualThirdPlacesAdvanced.includes(pick);
+              const is3rd = pick && actualStandings[gName]?.position_3 === pick;
+              const isTop2 = pick && (actualStandings[gName]?.position_1 === pick || actualStandings[gName]?.position_2 === pick);
+              const isCorrect = is3rd || isTop2;
               const showResultStatus = actualThirdPlacesAdvanced.length > 0;
 
               return (
@@ -766,7 +790,9 @@ export function PlayerPredictions() {
                         <span className="text-white text-xs font-semibold">{pick}</span>
                       </div>
                       {showResultStatus && (
-                        isCorrect ? (
+                        is3rd ? (
+                          <span className="text-emerald-400 text-[10px] font-bold">✓ +15 pts</span>
+                        ) : isTop2 ? (
                           <span className="text-emerald-400 text-[10px] font-bold">✓ +10 pts</span>
                         ) : (
                           <span className="text-red-400 text-[10px] font-bold">✗ 0 pts</span>

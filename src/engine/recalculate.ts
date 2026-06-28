@@ -117,18 +117,19 @@ export const recalculateScores = async (matchId?: number) => {
 
     // Map official group standings (A-L)
     const officialGroups = new Map<string, any>();
-    const officialThirdPlaces: string[] = [];
-    const officialThirdPlaceGroups = new Set<string>();
+    const officialStandingsRecord: Record<string, { position_1: string, position_2: string, position_3: string, position_4: string }> = {};
 
     if (officialGroupPredsRes.data) {
       officialGroupPredsRes.data.forEach(g => {
         if (g.position_1 && g.position_2) {
           officialGroups.set(g.group_name, g);
         }
-        if (g.position_3 && typeof g.position_3 === 'string' && g.position_3.trim() !== '') {
-          officialThirdPlaces.push(g.position_3);
-          officialThirdPlaceGroups.add(g.group_name);
-        }
+        officialStandingsRecord[g.group_name] = {
+          position_1: g.position_1 || '',
+          position_2: g.position_2 || '',
+          position_3: g.position_3 || '',
+          position_4: g.position_4 || ''
+        };
       });
     }
 
@@ -174,17 +175,17 @@ export const recalculateScores = async (matchId?: number) => {
         }
       });
 
-      // Calculate third-place qualifier points (only for groups where official position_3 is set)
+      // Calculate third-place qualifier points (using the new signature)
       const playerThirdPlaces: string[] = [];
       if (playerGroupPreds) {
         playerGroupPreds.forEach(gp => {
-          if (gp.position_3 && typeof gp.position_3 === 'string' && gp.position_3.trim() !== '' && officialThirdPlaceGroups.has(gp.group_name)) {
+          if (gp.position_3 && typeof gp.position_3 === 'string' && gp.position_3.trim() !== '') {
             playerThirdPlaces.push(gp.position_3);
           }
         });
       }
 
-      const thirdPlacePoints = calculateThirdPlaceQualifierPoints(playerThirdPlaces, officialThirdPlaces);
+      const thirdPlacePoints = calculateThirdPlaceQualifierPoints(playerThirdPlaces, officialStandingsRecord);
       const totalGroupPoints = groupPoints + thirdPlacePoints;
 
       const existing = existingScoresMap.get(pId) || { special_points: 0, id: undefined };

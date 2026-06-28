@@ -485,7 +485,7 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
               </h2>
               {actualThirdPlacesAdvanced.length > 0 && (
                 <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-md font-bold">
-                  +{calculateThirdPlaceQualifierPoints(thirdPlaceSelections, actualThirdPlacesAdvanced)} {t(lang, 'predictions.points')}
+                  +{calculateThirdPlaceQualifierPoints(thirdPlaceSelections, actualStandings)} {t(lang, 'predictions.points')}
                 </span>
               )}
             </div>
@@ -529,7 +529,8 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
                       const isSelected = thirdPlaceSelections.includes(team);
                       const is1or2 = selections[gName]?.first === team || selections[gName]?.second === team;
                       
-                      const isCorrect = actualThirdPlacesAdvanced.includes(team);
+                      const is3rd = actualStandings[gName]?.position_3 === team;
+                      const isTop2 = actualStandings[gName]?.position_1 === team || actualStandings[gName]?.position_2 === team;
                       const showResultStatus = actualThirdPlacesAdvanced.length > 0;
 
                       return (
@@ -555,12 +556,14 @@ export function GroupPredictions({ matches, groupName, onSave }: GroupPrediction
                           
                           <div className="flex items-center gap-1">
                             {showResultStatus && isSelected && (
-                               isCorrect ? (
-                                 <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +10 {t(lang, 'predictions.points')}</span>
-                               ) : (
-                                 <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 {t(lang, 'predictions.points')}</span>
-                               )
-                             )}
+                              is3rd ? (
+                                <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +15 {t(lang, 'predictions.points')}</span>
+                              ) : isTop2 ? (
+                                <span className="text-emerald-400 text-[10px] font-bold mr-1">✓ +10 {t(lang, 'predictions.points')}</span>
+                              ) : (
+                                <span className="text-red-400 text-[10px] font-bold mr-1">✗ 0 {t(lang, 'predictions.points')}</span>
+                              )
+                            )}
                             {isSelected && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white flex items-center justify-center">
                                 ✓

@@ -50,7 +50,7 @@ export const en = {
     actual: "Real",
     saveGroup: "Save Group",
     of8Selected: "of 8 selected",
-    thirdQualifiersDescription: "Select which 8 teams that finish in 3rd place in their respective groups will advance to the knockout stage.",
+    thirdQualifiersDescription: "Select which 8 teams that finish in 3rd place in their respective groups will advance to the knockout stage. Correct 3rd place pick: +15 pts | Team qualified via 1st/2nd: +10 pts",
     limitWarning: "You have already reached the limit of 8 third-place qualifiers. Deselect one before selecting another.",
     viewByGroup: "By Group",
     viewByDate: "By Date",
