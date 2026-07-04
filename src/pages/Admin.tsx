@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
+import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from '../engine/scoring';
+
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
 import { FlagIcon } from '../components/FlagIcon';
@@ -93,6 +95,21 @@ export function Admin() {
   const [officialThirdPlaces, setOfficialThirdPlaces] = useState<Record<string, string>>({});
   const [savingThirdPlaces, setSavingThirdPlaces] = useState(false);
 
+  // Recalculation preview & dry-run state
+  const [recalculating, setRecalculating] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewData, setPreviewData] = useState<Array<{
+    playerId: string,
+    name: string,
+    oldTotal: number,
+    newTotal: number,
+    oldMatch: number,
+    newMatch: number,
+    oldGroup: number,
+    newGroup: number
+  }>>([]);
+  const [isCommitting, setIsCommitting] = useState(false);
+
   const teamsByGroup = React.useMemo(() => {
     const map: Record<string, string[]> = {};
     matches.forEach(m => {
@@ -111,6 +128,250 @@ export function Admin() {
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const runPreview = async () => {
+    try {
+      setRecalculating(true);
+      
+      const fetchAllPredictions = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('predictions')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllPlayerScores = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('player_scores')
+            .select('*')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const fetchAllProfiles = async () => {
+        let allData: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .range(from, from + 999);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < 1000) {
+              hasMore = false;
+            } else {
+              from += 1000;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allData;
+      };
+
+      const [
+        allMatchesRes,
+        allPredictions,
+        allPlayerScores,
+        allProfiles,
+        officialGroupPredsRes,
+        allGroupPredictionsRes
+      ] = await Promise.all([
+        supabase.from('matches').select('*').not('actual_score_a', 'is', null),
+        fetchAllPredictions(),
+        fetchAllPlayerScores(),
+        fetchAllProfiles(),
+        supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
+      ]);
+
+      const allMatches = allMatchesRes.data;
+      if (!allMatches || !allPredictions || !allProfiles) {
+        showToast('Error fetching data for preview.', 'error');
+        return;
+      }
+
+      const matchMap = new Map(allMatches.map(m => [m.id, m]));
+      const scoresByPlayer = new Map<string, number>();
+
+      allPredictions.forEach(pred => {
+        const match = matchMap.get(pred.match_id);
+        if (match) {
+          const points = calculatePoints(match, pred);
+          scoresByPlayer.set(pred.player_id, (scoresByPlayer.get(pred.player_id) || 0) + points);
+        }
+      });
+
+      const officialGroups = new Map<string, any>();
+      const officialStandingsRecord: Record<string, any> = {};
+
+      if (officialGroupPredsRes.data) {
+        officialGroupPredsRes.data.forEach(g => {
+          if (g.position_1 && g.position_2) {
+            officialGroups.set(g.group_name, g);
+          }
+          officialStandingsRecord[g.group_name] = {
+            position_1: g.position_1 || '',
+            position_2: g.position_2 || '',
+            position_3: g.position_3 || '',
+            position_4: g.position_4 || ''
+          };
+        });
+      }
+
+      const confirmedThirdPlaceQualifiers = new Set<string>(
+        Object.values(officialStandingsRecord)
+          .map(g => g.position_3)
+          .filter((t): t is string => t !== '' && t != null)
+      );
+
+      const groupPredsMap = new Map<string, Map<string, any>>();
+      if (allGroupPredictionsRes.data) {
+        allGroupPredictionsRes.data.forEach(gp => {
+          if (!groupPredsMap.has(gp.player_id)) {
+            groupPredsMap.set(gp.player_id, new Map());
+          }
+          groupPredsMap.get(gp.player_id)!.set(gp.group_name, gp);
+        });
+      }
+
+      const existingScoresMap = new Map(allPlayerScores?.map(s => [s.player_id, s]) || []);
+
+      const list = allProfiles.map(profile => {
+        const pId = profile.id;
+        const newMatchPoints = scoresByPlayer.get(pId) || 0;
+        
+        let groupPoints = 0;
+        const playerGroupPreds = groupPredsMap.get(pId);
+        
+        officialGroups.forEach((official, groupName) => {
+          const pred = playerGroupPreds?.get(groupName);
+          if (pred) {
+            const firstPick = pred.position_1 || null;
+            const secondPick = pred.position_2 || null;
+
+            const getPointsForPick = (pick: string | null, targetPosition: '1' | '2') => {
+              if (!pick) return 0;
+              const predPos = targetPosition;
+              const actPos = official.position_1 === pick ? '1' : official.position_2 === pick ? '2' : official.position_3 === pick ? '3' : '4';
+              const predQualify = true;
+              const didQualify = actPos === '1' || actPos === '2';
+              return calculateGroupPositionPoints(predPos, actPos, predQualify, didQualify);
+            };
+
+            const p1Points = getPointsForPick(firstPick, '1');
+            const p2Points = getPointsForPick(secondPick, '2');
+            groupPoints += p1Points + p2Points;
+          }
+        });
+
+        const playerThirdPlaces: string[] = [];
+        const playerThirdPlacesSet = new Set<string>();
+        if (playerGroupPreds) {
+          playerGroupPreds.forEach(gp => {
+            if (gp.position_3 && typeof gp.position_3 === 'string' && gp.position_3.trim() !== '') {
+              playerThirdPlaces.push(gp.position_3);
+              playerThirdPlacesSet.add(gp.position_3);
+            }
+          });
+        }
+
+        const thirdPlacePoints = calculateThirdPlaceQualifierPoints(playerThirdPlaces, officialStandingsRecord);
+
+        let crossSlotPoints = 0;
+        if (playerGroupPreds) {
+          playerGroupPreds.forEach((gp, groupName) => {
+            const official = officialStandingsRecord[groupName];
+            if (!official) return;
+
+            const p1 = gp.position_1;
+            const p2 = gp.position_2;
+
+            if (p1 && confirmedThirdPlaceQualifiers.has(p1) && !playerThirdPlacesSet.has(p1)) {
+              crossSlotPoints += 10;
+            }
+            if (p2 && confirmedThirdPlaceQualifiers.has(p2) && !playerThirdPlacesSet.has(p2)) {
+              crossSlotPoints += 10;
+            }
+          });
+        }
+
+        const newGroupPoints = groupPoints + thirdPlacePoints + crossSlotPoints;
+        const existing = existingScoresMap.get(pId) || { total_points: 0, match_points: 0, group_points: 0, special_points: 0 };
+        
+        return {
+          playerId: pId,
+          name: profile.name,
+          oldTotal: existing.total_points || 0,
+          newTotal: newMatchPoints + newGroupPoints + (existing.special_points || 0),
+          oldMatch: existing.match_points || 0,
+          newMatch: newMatchPoints,
+          oldGroup: existing.group_points || 0,
+          newGroup: newGroupPoints
+        };
+      });
+
+      // Filter out profiles with no predictions or scores to keep preview clean if necessary,
+      // but let's keep all active profiles who have any changes or are participating
+      setPreviewData(list.sort((a, b) => b.newTotal - a.newTotal));
+      setShowPreviewModal(true);
+    } catch (err) {
+      console.error(err);
+      showToast('Error generating recalculation preview.', 'error');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
+  const commitRecalculation = async () => {
+    try {
+      setIsCommitting(true);
+      await recalculateScores();
+      showToast(lang === 'pt' ? 'Pontuações recalculadas e salvas com sucesso!' : 'Scores recalculated and saved successfully!', 'success');
+      setShowPreviewModal(false);
+    } catch (e) {
+      console.error(e);
+      showToast(lang === 'pt' ? 'Erro ao salvar pontuações.' : 'Error saving scores.', 'error');
+    } finally {
+      setIsCommitting(false);
+    }
   };
 
   useEffect(() => {
@@ -1537,6 +1798,39 @@ export function Admin() {
         </div>
       </div>
 
+      {/* Recalculate Scores Section */}
+      <div className="p-4 border-t border-slate-800 mt-4">
+        <h2 className="text-xl font-bold text-slate-200 mb-3">
+          {lang === 'pt' ? 'Recalcular Pontuações' : 'Recalculate Scores'}
+        </h2>
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-slate-300">
+              {lang === 'pt' ? 'Forçar recálculo de pontos' : 'Force points recalculation'}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              {lang === 'pt' 
+                ? 'Recalcula os pontos de todos os jogadores para todas as partidas, grupos e palpites especiais. Use isso após atualizações de regras ou correção de dados.' 
+                : 'Recalculates points for all players across all matches, groups, and special predictions. Use this after rule updates or data corrections.'}
+            </p>
+          </div>
+          <button
+            onClick={runPreview}
+            disabled={recalculating}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            {recalculating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{lang === 'pt' ? 'Recalculando...' : 'Recalculating...'}</span>
+              </>
+            ) : (
+              <span>{lang === 'pt' ? 'Recalcular Tudo' : 'Recalculate All'}</span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Modal Nova Partida */}
       {showNewMatchModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1623,6 +1917,100 @@ export function Admin() {
                   {savingMatch ? t(lang, 'admin.saving') : t(lang, 'admin.save')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Recalculation Preview / Dry-run */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-800/30 shrink-0">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-emerald-400">
+                <Trophy className="w-5 h-5" /> 
+                {lang === 'pt' ? 'Pré-visualização do Recálculo (Dry-Run)' : 'Recalculation Preview (Dry-Run)'}
+              </h3>
+              <button onClick={() => setShowPreviewModal(false)} className="text-slate-400 hover:text-white" disabled={isCommitting}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              <p className="text-xs text-slate-400">
+                {lang === 'pt' 
+                  ? 'Abaixo está a comparação das pontuações calculadas localmente em relação aos dados salvos no banco. Revise as alterações antes de confirmar.'
+                  : 'Below is a comparison of in-memory calculated scores against currently stored database values. Review changes before committing.'}
+              </p>
+              
+              <div className="border border-slate-800 rounded-lg overflow-hidden">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-800/50 text-slate-400 font-semibold border-b border-slate-800">
+                      <th className="p-3">{lang === 'pt' ? 'Jogador' : 'Player'}</th>
+                      <th className="p-3 text-center">{lang === 'pt' ? 'Jogos' : 'Matches'}</th>
+                      <th className="p-3 text-center">{lang === 'pt' ? 'Grupos' : 'Groups'}</th>
+                      <th className="p-3 text-center">{lang === 'pt' ? 'Total Atual' : 'Current Total'}</th>
+                      <th className="p-3 text-center">{lang === 'pt' ? 'Total Novo' : 'New Total'}</th>
+                      <th className="p-3 text-center">{lang === 'pt' ? 'Diferença' : 'Difference'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/40">
+                    {previewData.map(row => {
+                      const diff = row.newTotal - row.oldTotal;
+                      return (
+                        <tr key={row.playerId} className="hover:bg-slate-800/20 text-slate-300">
+                          <td className="p-3 font-medium text-slate-200">{row.name}</td>
+                          <td className="p-3 text-center">
+                            {row.oldMatch} &rarr; <strong className={row.newMatch !== row.oldMatch ? 'text-emerald-400' : ''}>{row.newMatch}</strong>
+                          </td>
+                          <td className="p-3 text-center">
+                            {row.oldGroup} &rarr; <strong className={row.newGroup !== row.oldGroup ? 'text-emerald-400' : ''}>{row.newGroup}</strong>
+                          </td>
+                          <td className="p-3 text-center font-semibold">{row.oldTotal}</td>
+                          <td className="p-3 text-center font-bold text-white">{row.newTotal}</td>
+                          <td className="p-3 text-center">
+                            {diff === 0 ? (
+                              <span className="text-slate-500 font-medium">—</span>
+                            ) : diff > 0 ? (
+                              <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">+{diff}</span>
+                            ) : (
+                              <span className="text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">{diff}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-800/10 shrink-0">
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="px-4 py-2 font-medium text-slate-300 hover:text-white"
+                disabled={isCommitting}
+              >
+                {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+              </button>
+              <button
+                onClick={commitRecalculation}
+                disabled={isCommitting}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50 flex items-center gap-2"
+              >
+                {isCommitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{lang === 'pt' ? 'Gravando...' : 'Committing...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{lang === 'pt' ? 'Confirmar & Gravar' : 'Confirm & Commit'}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

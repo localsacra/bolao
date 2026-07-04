@@ -11,7 +11,7 @@ type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 
-import { calculatePoints } from '../engine/scoring';
+import { calculatePoints, getPredictedAdvancer, getActualAdvancer } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { GROUP_STAGE_LOCK } from '../utils/constants';
@@ -963,13 +963,28 @@ export function Predictions() {
 
         {/* Actual Score and Points */}
         {match.actual_score_a !== null && match.actual_score_b !== null && (
-          <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex justify-between items-center">
-            <div className="text-sm text-slate-300">
-              {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} {t(lang, 'common.vs')} {match.actual_score_b}</strong>
+          <div className="mt-4 space-y-2">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex justify-between items-center">
+              <div className="text-sm text-slate-300">
+                {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} {t(lang, 'common.vs')} {match.actual_score_b}</strong>
+              </div>
+              <div className="text-emerald-400 font-bold flex items-center gap-1">
+                +{calculatePoints(match, pred)} <span className="text-xs font-normal opacity-80">{t(lang, 'predictions.points')}</span>
+              </div>
             </div>
-            <div className="text-emerald-400 font-bold flex items-center gap-1">
-              +{calculatePoints(match, pred)} <span className="text-xs font-normal opacity-80">{t(lang, 'predictions.points')}</span>
-            </div>
+            {isKnockout && (
+              <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-2.5 space-y-1.5 text-xs text-slate-300">
+                <div className="flex justify-between">
+                  <span>{lang === 'pt' ? 'Palpite Classificado:' : 'Predicted Advancer:'} <strong className="text-white">{getPredictedAdvancer(match, pred) || '—'}</strong></span>
+                  <span>{lang === 'pt' ? 'Classificado Real:' : 'Actual Advancer:'} <strong className="text-white">{getActualAdvancer(match) || '—'}</strong></span>
+                </div>
+                {getPredictedAdvancer(match, pred) && getActualAdvancer(match) && getPredictedAdvancer(match, pred) === getActualAdvancer(match) && (
+                  <div className="text-emerald-400 font-semibold text-right">
+                    +{lang === 'pt' ? '15 pts (Classificado correto)' : '15 pts (Correct advancer)'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

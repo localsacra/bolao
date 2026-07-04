@@ -10,7 +10,9 @@ import {
   calculatePoints, 
   calculateGroupPositionPoints, 
   calculateThirdPlaceQualifierPoints,
-  normalizeSpecialPrediction 
+  normalizeSpecialPrediction,
+  getPredictedAdvancer,
+  getActualAdvancer
 } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
@@ -461,20 +463,32 @@ export function PlayerPredictions() {
             )}
           </div>
         )}
-
         {/* Real Result & Score Badge */}
         {match.actual_score_a !== null && match.actual_score_b !== null && (
-          <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex justify-between items-center text-xs">
-            <span className="text-slate-300">
-              {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} x {match.actual_score_b}</strong>
-            </span>
-            <span className="text-emerald-400 font-bold">
-              +{points} {t(lang, 'predictions.points')}
-            </span>
+          <div className="mt-3 space-y-2">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex justify-between items-center text-xs">
+              <span className="text-slate-300">
+                {lang === 'pt' ? 'Placar Real:' : 'Real Score:'} <strong className="text-white ml-1">{match.actual_score_a} x {match.actual_score_b}</strong>
+              </span>
+              <span className="text-emerald-400 font-bold">
+                +{points} {t(lang, 'predictions.points')}
+              </span>
+            </div>
+            {match.phase !== 'group' && (
+              <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-2.5 space-y-1.5 text-[11px] text-slate-300">
+                <div className="flex justify-between">
+                  <span>{lang === 'pt' ? 'Palpite Classificado:' : 'Predicted Advancer:'} <strong className="text-white">{getPredictedAdvancer(match, pred) || '—'}</strong></span>
+                  <span>{lang === 'pt' ? 'Classificado Real:' : 'Actual Advancer:'} <strong className="text-white">{getActualAdvancer(match) || '—'}</strong></span>
+                </div>
+                {getPredictedAdvancer(match, pred) && getActualAdvancer(match) && getPredictedAdvancer(match, pred) === getActualAdvancer(match) && (
+                  <div className="text-emerald-400 font-semibold text-right">
+                    +{lang === 'pt' ? '15 pts (Classificado correto)' : '15 pts (Correct advancer)'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-
-      </div>
+        )}      </div>
     );
   }
 

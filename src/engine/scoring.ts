@@ -4,13 +4,32 @@ import type { Database } from '../lib/supabase';
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 
+export const getPredictedAdvancer = (match: Match, pred: Partial<Prediction> | undefined): string | null => {
+  if (!pred || pred.predicted_score_a == null || pred.predicted_score_b == null) return null;
+  if (pred.predicted_score_a > pred.predicted_score_b) return match.team_a;
+  if (pred.predicted_score_a < pred.predicted_score_b) return match.team_b;
+  if (pred.advance_team) return pred.advance_team;
+  if (pred.predicted_tiebreaker_winner === 'A') return match.team_a;
+  if (pred.predicted_tiebreaker_winner === 'B') return match.team_b;
+  return null;
+};
+
+export const getActualAdvancer = (match: Match): string | null => {
+  if (match.actual_score_a == null || match.actual_score_b == null) return null;
+  if (match.actual_score_a > match.actual_score_b) return match.team_a;
+  if (match.actual_score_a < match.actual_score_b) return match.team_b;
+  if (match.actual_tiebreaker_winner === 'A') return match.team_a;
+  if (match.actual_tiebreaker_winner === 'B') return match.team_b;
+  return null;
+};
+
 export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefined): number => {
   if (!isKnownPhase(match.phase)) {
     console.warn(`Unknown match phase: "${match.phase}" — returning 0`);
     return 0;
   }
 
-  if (!pred || pred.predicted_score_a === undefined || pred.predicted_score_b === undefined) return 0;
+  if (!pred || pred.predicted_score_a == null || pred.predicted_score_b == null) return 0;
   if (match.actual_score_a === null || match.actual_score_b === null) return 0;
 
   const a = match.actual_score_a;
@@ -33,6 +52,13 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
     else if (correctResult) points += 12;
 
     if (!exactScore && oneTeamGoalsCorrect) points += 3;
+
+    // Correct advancer bonus (+15 pts)
+    const predictedAdvancer = getPredictedAdvancer(match, pred);
+    const actualAdvancer = getActualAdvancer(match);
+    if (predictedAdvancer && actualAdvancer && predictedAdvancer === actualAdvancer) {
+      points += 15;
+    }
 
     // Tie-breaker bonus (+5 pts)
     if (
