@@ -6,3 +6,5 @@ export const TOTAL_MATCH_PREDICTIONS = 72;
 export const TOTAL_GROUP_PREDICTIONS = 12;
 export const TOTAL_SPECIAL_PREDICTIONS = 5;
 
+export const COLLAPSIBLE_PHASES = ['group', 'round_of_32', 'round_of_16'];
+

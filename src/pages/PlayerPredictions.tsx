@@ -16,13 +16,23 @@ import {
 } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
-import { GROUP_STAGE_LOCK } from '../utils/constants';
+import { GROUP_STAGE_LOCK, COLLAPSIBLE_PHASES } from '../utils/constants';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 type GroupPrediction = Database['public']['Tables']['group_predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
+
+const PHASE_ORDER: Record<string, number> = {
+  'group': 1,
+  'round_of_32': 2,
+  'round_of_16': 3,
+  'quarter_final': 4,
+  'semi_final': 5,
+  'third_place': 6,
+  'final': 7
+};
 
 const isMatchLocked = (match: Match) => {
   const isGroup = match.phase === 'group';
@@ -57,8 +67,9 @@ export function PlayerPredictions() {
   const navigate = useNavigate();
   const { user: currentUser, isLoading: authLoading } = useAuthStore();
   const { lang } = useLang();
+  const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>({});
+  const [hasInitializedExpanded, setHasInitializedExpanded] = useState(false);
   const [expandedMatches, setExpandedMatches] = useState<Record<number, boolean>>({});
-  const [groupStageExpanded, setGroupStageExpanded] = useState<boolean | null>(null);
 
   const toggleExpand = (matchId: number) => {
     setExpandedMatches(prev => ({
@@ -96,6 +107,21 @@ export function PlayerPredictions() {
   // Actual results & standings
   const [actualStandings, setActualStandings] = useState<Record<string, GroupPrediction>>({});
   const [actualSpecial, setActualSpecial] = useState<SpecialPredictionRow | null>(null);
+
+  useEffect(() => {
+    if (matches.length > 0 && !hasInitializedExpanded) {
+      const initial: Record<string, boolean> = {};
+      COLLAPSIBLE_PHASES.forEach(phase => {
+        const phaseMatches = matches.filter(m => m.phase === phase);
+        const scoredCount = phaseMatches.filter(m => m.actual_score_a !== null && m.actual_score_b !== null).length;
+        const totalCount = phaseMatches.length;
+        const allScored = totalCount > 0 && scoredCount === totalCount;
+        initial[phase] = !allScored;
+      });
+      setSectionsExpanded(initial);
+      setHasInitializedExpanded(true);
+    }
+  }, [matches, hasInitializedExpanded]);
 
   // Redirect if profile is hidden and is not the current user
   useEffect(() => {
@@ -252,31 +278,15 @@ export function PlayerPredictions() {
       .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
   }, [matches]);
 
-  // Knockout matches grouped by phase
-  const knockoutStageMatchesByPhase = useMemo(() => {
+  // All matches grouped by phase
+  const groupedMatches = useMemo(() => {
     const map: Record<string, Match[]> = {};
-    matches
-      .filter(m => m.phase !== 'group')
-      .forEach(m => {
-        if (!map[m.phase]) map[m.phase] = [];
-        map[m.phase].push(m);
-      });
+    matches.forEach(m => {
+      if (!map[m.phase]) map[m.phase] = [];
+      map[m.phase].push(m);
+    });
     return map;
   }, [matches]);
-
-  // Sorted list of knockout phases present
-  const sortedKnockoutPhases = useMemo(() => {
-    const PHASE_ORDER: Record<string, number> = {
-      'round_of_32': 2,
-      'round_of_16': 3,
-      'quarter_final': 4,
-      'semi_final': 5,
-      'third_place': 6,
-      'final': 7
-    };
-    return Object.keys(knockoutStageMatchesByPhase)
-      .sort((a, b) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99));
-  }, [knockoutStageMatchesByPhase]);
 
   if (!isLocked) {
     return null;
@@ -492,18 +502,6 @@ export function PlayerPredictions() {
     );
   }
 
-  const groupMatches = matches.filter(m => m.phase === 'group');
-  const scoredGroupCount = groupMatches.filter(m => m.actual_score_a !== null && m.actual_score_b !== null).length;
-  const totalGroupCount = groupMatches.length;
-  const allGroupMatchesScored = groupMatches.length > 0 && scoredGroupCount === totalGroupCount;
-  const isGroupStageExpanded = groupStageExpanded ?? !allGroupMatchesScored;
-
-  const groupStagePoints = groupMatches.reduce((sum, m) => {
-    const pred = predictions[m.id];
-    if (!pred) return sum;
-    return sum + calculatePoints(m, pred);
-  }, 0);
-
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-20 max-w-3xl mx-auto w-full p-4 space-y-8">
       
@@ -533,120 +531,138 @@ export function PlayerPredictions() {
         </div>
       </div>
 
-      {/* SECTION 1: MATCH PREDICTIONS (Group Stage) */}
-      <section className="space-y-4">
-        <button
-          onClick={() => setGroupStageExpanded(prev => !prev)}
-          aria-expanded={isGroupStageExpanded}
-          aria-label={isGroupStageExpanded ? (lang === 'pt' ? 'Recolher Fase de Grupos' : 'Collapse Group Stage') : (lang === 'pt' ? 'Expandir Fase de Grupos' : 'Expand Group Stage')}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors text-left"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-white flex items-center gap-2">
-              ⚽ {t(lang, 'predictions.groupStage')}
-            </span>
-            <span className="text-sm text-slate-400 hidden sm:inline">
-              {scoredGroupCount}/{totalGroupCount} {t(lang, 'predictions.scored')}
-            </span>
-            <span className="text-xs text-slate-400 sm:hidden">
-              ({scoredGroupCount}/{totalGroupCount})
-            </span>
-          </div>
+      {/* MATCH PREDICTIONS (All Phases) */}
+      {Object.entries(groupedMatches)
+        .sort(([a], [b]) => (PHASE_ORDER[a] || 99) - (PHASE_ORDER[b] || 99))
+        .map(([phase, phaseMatches]) => {
+          const isCollapsible = COLLAPSIBLE_PHASES.includes(phase);
+          const scoredCount = phaseMatches.filter(m => m.actual_score_a !== null && m.actual_score_b !== null).length;
+          const totalCount = phaseMatches.length;
+          const isExpanded = isCollapsible ? (sectionsExpanded[phase] ?? true) : true;
 
-          <div className="flex items-center gap-2">
-            {groupStagePoints > 0 && (
-              <span className="text-sm font-semibold text-emerald-400">
-                +{groupStagePoints} pts
-              </span>
-            )}
-            <ChevronDown
-              className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${
-                isGroupStageExpanded ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
-        </button>
+          const sectionPoints = phaseMatches.reduce((sum, m) => {
+            const pred = predictions[m.id];
+            if (!pred) return sum;
+            return sum + calculatePoints(m, pred);
+          }, 0);
 
-        {isGroupStageExpanded && (
-          <div className="space-y-6 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex justify-end">
-              <div className="flex bg-slate-955 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
-                <button
-                  onClick={() => handleViewModeChange('group')}
-                  className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                    viewMode === 'group'
-                      ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                      : 'hover:text-slate-205 hover:bg-slate-800/40'
-                  }`}
-                >
-                  {t(lang, 'predictions.viewByGroup')}
-                </button>
-                <button
-                  onClick={() => handleViewModeChange('date')}
-                  className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                    viewMode === 'date'
-                      ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                      : 'hover:text-slate-205 hover:bg-slate-800/40'
-                  }`}
-                >
-                  {t(lang, 'predictions.viewByDate')}
-                </button>
-              </div>
-            </div>
+          const ariaLabelText = lang === 'pt'
+            ? `${formatPhaseName(phase, lang)}, ${scoredCount} de ${totalCount} pontuados`
+            : `${formatPhaseName(phase, lang)}, ${scoredCount} of ${totalCount} scored`;
 
-            <div className="space-y-8">
-              {viewMode === 'date' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sortedGroupStageMatches.map(match => renderMatchCard(match))}
+          return (
+            <section key={phase} className="space-y-4">
+              {isCollapsible ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setSectionsExpanded(prev => ({ ...prev, [phase]: !isExpanded }))}
+                    aria-expanded={isExpanded}
+                    aria-label={ariaLabelText}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors text-left font-sans"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white flex items-center gap-2">
+                        {phase === 'group' ? '⚽' : '🏆'} {formatPhaseName(phase, lang)}
+                      </span>
+                      <span className="text-sm text-slate-400 hidden sm:inline">
+                        {scoredCount}/{totalCount} {t(lang, 'predictions.scored')}
+                      </span>
+                      <span className="text-xs text-slate-400 sm:hidden">
+                        ({scoredCount}/{totalCount})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {sectionPoints > 0 && (
+                        <span className="text-sm font-semibold text-emerald-400">
+                          +{sectionPoints} pts
+                        </span>
+                      )}
+                      <ChevronDown
+                        className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${
+                          isExpanded ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="space-y-6 animate-in slide-in-from-top-2 duration-200">
+                      {phase === 'group' ? (
+                        <>
+                          <div className="flex justify-end">
+                            <div className="flex bg-slate-955 border border-slate-700/60 rounded-lg p-0.5 text-xs font-semibold text-slate-400">
+                              <button
+                                onClick={() => handleViewModeChange('group')}
+                                className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                                  viewMode === 'group'
+                                    ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                                    : 'hover:text-slate-205 hover:bg-slate-800/40'
+                                }`}
+                              >
+                                {t(lang, 'predictions.viewByGroup')}
+                              </button>
+                              <button
+                                onClick={() => handleViewModeChange('date')}
+                                className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                                  viewMode === 'date'
+                                    ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                                    : 'hover:text-slate-205 hover:bg-slate-800/40'
+                                }`}
+                              >
+                                {t(lang, 'predictions.viewByDate')}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-8">
+                            {viewMode === 'date' ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {sortedGroupStageMatches.map(match => renderMatchCard(match))}
+                              </div>
+                            ) : (
+                              sortedGroupNames.map(groupName => {
+                                const groupMatches = groupStageMatchesByGroup[groupName] || [];
+
+                                return (
+                                  <div key={groupName} className="space-y-3">
+                                    <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
+                                      {lang === 'pt' ? 'Grupo' : 'Group'} {groupName}
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {groupMatches.map(match => renderMatchCard(match))}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[...phaseMatches]
+                            .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+                            .map(match => renderMatchCard(match))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
-                sortedGroupNames.map(groupName => {
-                  const groupMatches = groupStageMatchesByGroup[groupName] || [];
-
-                  return (
-                    <div key={groupName} className="space-y-3">
-                      <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
-                        {lang === 'pt' ? 'Grupo' : 'Group'} {groupName}
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {groupMatches.map(match => renderMatchCard(match))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 1.5: MATCH PREDICTIONS (Knockout Stage) */}
-      {Object.keys(knockoutStageMatchesByPhase).length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-            🏆 {lang === 'pt' ? 'Palpites de Partidas (Mata-Mata)' : 'Match Predictions (Knockout Stage)'}
-          </h2>
-          
-          <div className="space-y-8">
-            {sortedKnockoutPhases.map(phase => {
-              const phaseMatches = knockoutStageMatchesByPhase[phase] || [];
-              
-              return (
-                <div key={phase} className="space-y-3">
-                  <h3 className="text-md font-semibold text-slate-300 flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-md w-fit">
-                    {formatPhaseName(phase, lang)}
-                  </h3>
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2 pt-2">
+                    🏆 {formatPhaseName(phase, lang)}
+                  </h2>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {phaseMatches.map(match => renderMatchCard(match))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              )}
+            </section>
+          );
+        })}
 
       {/* SECTION 2: GROUP STANDINGS PREDICTIONS */}
       <section className="space-y-6">
