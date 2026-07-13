@@ -26,3 +26,7 @@ dist-ssr
 .env
 .vercel
 .env*
+
+# Temporary scratch files and backups
+scratch/
+

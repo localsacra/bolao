@@ -1,6 +1,17 @@
 import { isKnownPhase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 
+// Point rules configuration constants
+export const POINTS_KNOCKOUT_EXACT = 24;
+export const POINTS_KNOCKOUT_CORRECT_RESULT = 12;
+export const POINTS_KNOCKOUT_ONE_TEAM_GOALS = 3;
+export const POINTS_GROUP_EXACT = 12;
+export const POINTS_GROUP_CORRECT_RESULT = 6;
+export const POINTS_GROUP_ONE_TEAM_GOALS = 2;
+export const POINTS_CORRECT_ADVANCER = 15;
+export const POINTS_TIEBREAKER_WINNER = 3;
+export const POINTS_ADVANCE_METHOD = 5;
+
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 
@@ -48,19 +59,23 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
   const isKnockout = match.phase !== 'group';
 
   if (isKnockout) {
-    if (exactScore && correctResult) points += 24;
-    else if (correctResult) points += 12;
+    if (exactScore && correctResult) points += POINTS_KNOCKOUT_EXACT;
+    else if (correctResult) points += POINTS_KNOCKOUT_CORRECT_RESULT;
 
-    if (!exactScore && oneTeamGoalsCorrect) points += 3;
+    if (!exactScore && oneTeamGoalsCorrect) points += POINTS_KNOCKOUT_ONE_TEAM_GOALS;
 
-    // Correct advancer bonus (+15 pts)
+    // Correct advancer bonus (POINTS_CORRECT_ADVANCER = 15 pts)
+    // Awarded generally to anyone who correctly predicts the team that ultimately advances,
+    // whether they predicted a draw or a regulation win.
     const predictedAdvancer = getPredictedAdvancer(match, pred);
     const actualAdvancer = getActualAdvancer(match);
     if (predictedAdvancer && actualAdvancer && predictedAdvancer === actualAdvancer) {
-      points += 15;
+      points += POINTS_CORRECT_ADVANCER;
     }
 
-    // Tie-breaker bonus (+5 pts)
+    // Tie-breaker bonus (POINTS_TIEBREAKER_WINNER = 3 pts)
+    // Awarded strictly on draw matches (both predicted and actual score are draws) where
+    // the user correctly predicted the tie-breaker winner.
     if (
       pa === pb &&
       a === b &&
@@ -68,23 +83,27 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
       match.actual_tiebreaker_winner &&
       pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner
     ) {
-      points += 5;
+      points += POINTS_TIEBREAKER_WINNER;
 
-      // Advance method bonus (+3 pts)
+      // Advance method bonus (POINTS_ADVANCE_METHOD = 5 pts)
+      // Awarded only if they correctly predicted the advance method (penalties vs extra time).
+      // Note: This check is nested inside the tie-breaker winner check, gating method points
+      // strictly behind a correct winner prediction.
       if (
         pred.advance_method &&
         match.actual_advance_method &&
         pred.advance_method === match.actual_advance_method
       ) {
-        points += 3;
+        points += POINTS_ADVANCE_METHOD;
       }
     }
   } else {
-    if (exactScore && correctResult) points += 12;
-    else if (correctResult) points += 6;
+    if (exactScore && correctResult) points += POINTS_GROUP_EXACT;
+    else if (correctResult) points += POINTS_GROUP_CORRECT_RESULT;
 
-    if (!exactScore && oneTeamGoalsCorrect) points += 2;
+    if (!exactScore && oneTeamGoalsCorrect) points += POINTS_GROUP_ONE_TEAM_GOALS;
   }
+
 
   return points;
 };
