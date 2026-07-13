@@ -54,9 +54,9 @@ test('Scenario 1: Draw predicted, Actual is draw', async (t: any) => {
       actual_advance_method: 'Pênaltis',
     };
 
-    // Exact Score (24) + Correct Advancer (15) + Tie-breaker Winner (3) + Method (5) = 47 pts
+    // Exact Score (24) + Correct Advancer (15) + Method (5) = 44 pts
     const points = calculatePoints(match, pred);
-    assert.equal(points, 47);
+    assert.equal(points, 44);
   });
 
   await t.test('Correct advancer, wrong method', () => {
@@ -79,9 +79,9 @@ test('Scenario 1: Draw predicted, Actual is draw', async (t: any) => {
       actual_advance_method: 'Prorrogação',
     };
 
-    // Exact Score (24) + Correct Advancer (15) + Tie-breaker Winner (3) + Wrong Method (0) = 42 pts
+    // Exact Score (24) + Correct Advancer (15) + Wrong Method (0) = 39 pts
     const points = calculatePoints(match, pred);
-    assert.equal(points, 42);
+    assert.equal(points, 39);
   });
 
   await t.test('Wrong advancer, wrong method (method gated off)', () => {

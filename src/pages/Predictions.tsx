@@ -11,7 +11,7 @@ type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 
-import { calculatePoints, getPredictedAdvancer, getActualAdvancer, POINTS_CORRECT_ADVANCER, POINTS_TIEBREAKER_WINNER, POINTS_ADVANCE_METHOD } from '../engine/scoring';
+import { calculatePoints, getPredictedAdvancer, getActualAdvancer, POINTS_CORRECT_ADVANCER, POINTS_ADVANCE_METHOD } from '../engine/scoring';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { GROUP_STAGE_LOCK, COLLAPSIBLE_PHASES } from '../utils/constants';
@@ -1014,11 +1014,6 @@ export function Predictions() {
                 )}
                 {isDraw && match.actual_score_a === match.actual_score_b && (
                   <>
-                    {pred.predicted_tiebreaker_winner && match.actual_tiebreaker_winner && pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner && (
-                      <div className="text-emerald-400 font-semibold text-right animate-in fade-in">
-                        +{POINTS_TIEBREAKER_WINNER} {lang === 'pt' ? 'pts (Vencedor do desempate correto)' : 'pts (Correct tie-breaker winner)'}
-                      </div>
-                    )}
                     {pred.predicted_tiebreaker_winner && match.actual_tiebreaker_winner && pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner && pred.advance_method && match.actual_advance_method && pred.advance_method === match.actual_advance_method && (
                       <div className="text-emerald-400 font-semibold text-right animate-in fade-in">
                         +{POINTS_ADVANCE_METHOD} {lang === 'pt' ? 'pts (Método de avanço correto)' : 'pts (Correct advance method)'}

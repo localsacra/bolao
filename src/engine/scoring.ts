@@ -9,7 +9,6 @@ export const POINTS_GROUP_EXACT = 12;
 export const POINTS_GROUP_CORRECT_RESULT = 6;
 export const POINTS_GROUP_ONE_TEAM_GOALS = 2;
 export const POINTS_CORRECT_ADVANCER = 15;
-export const POINTS_TIEBREAKER_WINNER = 3;
 export const POINTS_ADVANCE_METHOD = 5;
 
 type Match = Database['public']['Tables']['matches']['Row'];
@@ -73,29 +72,22 @@ export const calculatePoints = (match: Match, pred: Partial<Prediction> | undefi
       points += POINTS_CORRECT_ADVANCER;
     }
 
-    // Tie-breaker bonus (POINTS_TIEBREAKER_WINNER = 3 pts)
+    // Advance method bonus (POINTS_ADVANCE_METHOD = 5 pts)
     // Awarded strictly on draw matches (both predicted and actual score are draws) where
-    // the user correctly predicted the tie-breaker winner.
+    // the user correctly predicted the tie-breaker winner AND the advance method.
+    // Note: The advance method check is combined with the tie-breaker winner check to gate
+    // the bonus strictly behind a correct winner prediction.
     if (
       pa === pb &&
       a === b &&
       pred.predicted_tiebreaker_winner &&
       match.actual_tiebreaker_winner &&
-      pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner
+      pred.predicted_tiebreaker_winner === match.actual_tiebreaker_winner &&
+      pred.advance_method &&
+      match.actual_advance_method &&
+      pred.advance_method === match.actual_advance_method
     ) {
-      points += POINTS_TIEBREAKER_WINNER;
-
-      // Advance method bonus (POINTS_ADVANCE_METHOD = 5 pts)
-      // Awarded only if they correctly predicted the advance method (penalties vs extra time).
-      // Note: This check is nested inside the tie-breaker winner check, gating method points
-      // strictly behind a correct winner prediction.
-      if (
-        pred.advance_method &&
-        match.actual_advance_method &&
-        pred.advance_method === match.actual_advance_method
-      ) {
-        points += POINTS_ADVANCE_METHOD;
-      }
+      points += POINTS_ADVANCE_METHOD;
     }
   } else {
     if (exactScore && correctResult) points += POINTS_GROUP_EXACT;
