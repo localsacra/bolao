@@ -523,13 +523,9 @@ export function Admin() {
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateStr = e.target.value;
     if (dateStr) {
-      const date = new Date(dateStr);
-      date.setMinutes(date.getMinutes() - 15);
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      const deadlineStr = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-      setNewMatch(prev => ({ ...prev, match_date: dateStr, deadline: deadlineStr }));
+      setNewMatch(prev => ({ ...prev, match_date: dateStr, deadline: dateStr }));
     } else {
-      setNewMatch(prev => ({ ...prev, match_date: '' }));
+      setNewMatch(prev => ({ ...prev, match_date: '', deadline: '' }));
     }
   };
 
