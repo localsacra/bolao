@@ -6,7 +6,15 @@ import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
-import { calculatePoints, isCategoryPredictionCorrect } from '../engine/scoring';
+import {
+  calculatePoints,
+  isCategoryPredictionCorrect,
+  POINTS_SPECIAL_CHAMPION,
+  POINTS_SPECIAL_RUNNER_UP,
+  POINTS_SPECIAL_THIRD_PLACE,
+  POINTS_SPECIAL_TOP_SCORER,
+  POINTS_SPECIAL_BEST_PLAYER
+} from '../engine/scoring';
 import { FlagIcon } from '../components/FlagIcon';
 import {
   GROUP_STAGE_LOCK,
@@ -18,6 +26,7 @@ import {
 type PlayerScore = Database['public']['Tables']['player_scores']['Row'] & {
   profiles?: { name: string; is_hidden: boolean } | null;
 };
+type SpecialPredictionRow = Database['public']['Tables']['special_predictions']['Row'];
 
 interface CountdownSubtitleProps {
   lockTime: Date;
@@ -77,6 +86,8 @@ export function Leaderboard() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [championPredictions, setChampionPredictions] = useState<Record<string, string>>({});
   const [actualChampion, setActualChampion] = useState<string | null>(null);
+  const [officialSpecial, setOfficialSpecial] = useState<SpecialPredictionRow | null>(null);
+  const [userSpecialsMap, setUserSpecialsMap] = useState<Record<string, SpecialPredictionRow>>({});
   const [matches, setMatches] = useState<Database['public']['Tables']['matches']['Row'][]>([]);
   const [recentPredictions, setRecentPredictions] = useState<Database['public']['Tables']['predictions']['Row'][]>([]);
 
@@ -310,11 +321,14 @@ export function Leaderboard() {
       const specialCounts: Record<string, number> = {};
       const officialRow = specialData.find(r => r.player_id === '00000000-0000-0000-0000-000000000000');
       setActualChampion(officialRow?.champion || null);
+      setOfficialSpecial(officialRow || null);
 
       const map: Record<string, string> = {};
+      const specialsMap: Record<string, SpecialPredictionRow> = {};
       for (const row of specialData) {
         if (row.player_id !== '00000000-0000-0000-0000-000000000000') {
           map[row.player_id] = row.champion;
+          specialsMap[row.player_id] = row;
           const filled = [
             row.champion,
             row.vice_champion,
@@ -326,6 +340,7 @@ export function Leaderboard() {
         }
       }
       setChampionPredictions(map);
+      setUserSpecialsMap(specialsMap);
       setSpecialPredictionCounts(specialCounts);
 
     } catch (err) {
@@ -634,6 +649,84 @@ export function Leaderboard() {
                           </div>
                         ))}
                       </div>
+
+                      {/* Correct Specials Display */}
+                      {(() => {
+                        const userSpec = userSpecialsMap[item.player_id];
+                        if (!userSpec || !officialSpecial) return null;
+
+                        const categories = [
+                          {
+                            key: 'champion' as const,
+                            label: t(lang, 'predictions.champion'),
+                            icon: '🏆',
+                            isTeam: true,
+                            points: POINTS_SPECIAL_CHAMPION,
+                          },
+                          {
+                            key: 'vice_champion' as const,
+                            label: t(lang, 'predictions.runnerUp'),
+                            icon: '🥈',
+                            isTeam: true,
+                            points: POINTS_SPECIAL_RUNNER_UP,
+                          },
+                          {
+                            key: 'third_place' as const,
+                            label: t(lang, 'predictions.thirdPlace'),
+                            icon: '🥉',
+                            isTeam: true,
+                            points: POINTS_SPECIAL_THIRD_PLACE,
+                          },
+                          {
+                            key: 'top_scorer' as const,
+                            label: t(lang, 'predictions.topScorer'),
+                            icon: '⚽',
+                            isTeam: false,
+                            points: POINTS_SPECIAL_TOP_SCORER,
+                          },
+                          {
+                            key: 'best_player' as const,
+                            label: t(lang, 'predictions.bestPlayer'),
+                            icon: '⭐',
+                            isTeam: false,
+                            points: POINTS_SPECIAL_BEST_PLAYER,
+                          },
+                        ];
+
+                        const correctSpecials = categories.filter(cat => {
+                          const officialVal = officialSpecial[cat.key];
+                          if (!officialVal || !officialVal.trim()) return false;
+                          const userVal = userSpec[cat.key];
+                          return isCategoryPredictionCorrect(userVal, officialVal);
+                        });
+
+                        if (correctSpecials.length === 0) return null;
+
+                        return (
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            {correctSpecials.map((cat) => {
+                              const rawPrediction = (userSpec[cat.key] || '').trim();
+                              return (
+                                <div
+                                  key={cat.key}
+                                  className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded text-[11px] shrink-0"
+                                  title={`${cat.label}: ${rawPrediction}`}
+                                >
+                                  <span>{cat.icon}</span>
+                                  {cat.isTeam && <FlagIcon country={rawPrediction} size="sm" />}
+                                  <span className="font-semibold text-slate-200">
+                                    {cat.label}: {rawPrediction}
+                                  </span>
+                                  <span className="text-sm select-none" title={lang === 'pt' ? 'Especial correto' : 'Correct special'}>🟢</span>
+                                  <span className="text-[10px] font-bold text-emerald-400">
+                                    +{cat.points}{t(lang, 'predictions.points')}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

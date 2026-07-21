@@ -11,6 +11,12 @@ export const POINTS_GROUP_ONE_TEAM_GOALS = 2;
 export const POINTS_CORRECT_ADVANCER = 15;
 export const POINTS_ADVANCE_METHOD = 5;
 
+export const POINTS_SPECIAL_CHAMPION = 25;
+export const POINTS_SPECIAL_RUNNER_UP = 10;
+export const POINTS_SPECIAL_THIRD_PLACE = 10;
+export const POINTS_SPECIAL_TOP_SCORER = 15;
+export const POINTS_SPECIAL_BEST_PLAYER = 15;
+
 type Match = Database['public']['Tables']['matches']['Row'];
 type Prediction = Database['public']['Tables']['predictions']['Row'];
 
@@ -187,11 +193,11 @@ export function calculateSpecialPoints(
   }
 ): number {
   let points = 0;
-  if (isCategoryPredictionCorrect(prediction.champion, actual.champion)) points += 25;
-  if (prediction.vice_champion && isCategoryPredictionCorrect(prediction.vice_champion, actual.vice_champion)) points += 10;
-  if (prediction.third_place && isCategoryPredictionCorrect(prediction.third_place, actual.third_place)) points += 10;
-  if (isCategoryPredictionCorrect(prediction.top_scorer, actual.top_scorer)) points += 15;
-  if (isCategoryPredictionCorrect(prediction.best_player, actual.best_player)) points += 15;
+  if (isCategoryPredictionCorrect(prediction.champion, actual.champion)) points += POINTS_SPECIAL_CHAMPION;
+  if (prediction.vice_champion && isCategoryPredictionCorrect(prediction.vice_champion, actual.vice_champion)) points += POINTS_SPECIAL_RUNNER_UP;
+  if (prediction.third_place && isCategoryPredictionCorrect(prediction.third_place, actual.third_place)) points += POINTS_SPECIAL_THIRD_PLACE;
+  if (isCategoryPredictionCorrect(prediction.top_scorer, actual.top_scorer)) points += POINTS_SPECIAL_TOP_SCORER;
+  if (isCategoryPredictionCorrect(prediction.best_player, actual.best_player)) points += POINTS_SPECIAL_BEST_PLAYER;
   return points;
 }
 
