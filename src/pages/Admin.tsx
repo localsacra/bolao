@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
-import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints, normalizeSpecialPrediction, parseApprovedSpecialKeys } from '../engine/scoring';
+import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints, calculateSpecialPoints, normalizeSpecialPrediction, parseApprovedSpecialKeys } from '../engine/scoring';
 
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
@@ -252,14 +252,18 @@ export function Admin() {
         allPlayerScores,
         allProfiles,
         officialGroupPredsRes,
-        allGroupPredictionsRes
+        allGroupPredictionsRes,
+        officialSpecialPredRes,
+        allSpecialPredictionsRes
       ] = await Promise.all([
         supabase.from('matches').select('*').not('actual_score_a', 'is', null),
         fetchAllPredictions(),
         fetchAllPlayerScores(),
         fetchAllProfiles(),
         supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000'),
-        supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
+        supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('special_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000').maybeSingle(),
+        supabase.from('special_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
       ]);
 
       const allMatches = allMatchesRes.data;
@@ -309,6 +313,21 @@ export function Admin() {
             groupPredsMap.set(gp.player_id, new Map());
           }
           groupPredsMap.get(gp.player_id)!.set(gp.group_name, gp);
+        });
+      }
+
+      const officialSpecial = officialSpecialPredRes.data || {
+        champion: '',
+        vice_champion: '',
+        third_place: '',
+        top_scorer: '',
+        best_player: ''
+      };
+
+      const specialPredsMap = new Map<string, any>();
+      if (allSpecialPredictionsRes.data) {
+        allSpecialPredictionsRes.data.forEach(sp => {
+          specialPredsMap.set(sp.player_id, sp);
         });
       }
 
@@ -374,13 +393,23 @@ export function Admin() {
         }
 
         const newGroupPoints = groupPoints + thirdPlacePoints + crossSlotPoints;
+
+        const playerSpecialPred = specialPredsMap.get(pId) || {
+          champion: '',
+          vice_champion: '',
+          third_place: '',
+          top_scorer: '',
+          best_player: ''
+        };
+        const newSpecialPoints = calculateSpecialPoints(playerSpecialPred, officialSpecial);
+
         const existing = existingScoresMap.get(pId) || { total_points: 0, match_points: 0, group_points: 0, special_points: 0 };
         
         return {
           playerId: pId,
           name: profile.name,
           oldTotal: existing.total_points || 0,
-          newTotal: newMatchPoints + newGroupPoints + (existing.special_points || 0),
+          newTotal: newMatchPoints + newGroupPoints + newSpecialPoints,
           oldMatch: existing.match_points || 0,
           newMatch: newMatchPoints,
           oldGroup: existing.group_points || 0,
