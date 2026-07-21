@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/supabase';
 import { recalculateScores } from '../engine/recalculate';
-import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from '../engine/scoring';
+import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints, normalizeSpecialPrediction, parseApprovedSpecialKeys } from '../engine/scoring';
 
 import { CheckCircle, AlertCircle, Calendar, Users, Trophy, Plus, Check, Edit2, X, Download, Loader2, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatMatchTime } from '../utils/dateUtils';
@@ -46,9 +46,31 @@ const formatPhaseName = (phase: string, lang: 'pt' | 'en') => {
 };
 
 
+type SpecialCategory = 'champion' | 'vice_champion' | 'third_place' | 'top_scorer' | 'best_player';
+const SPECIAL_CATEGORIES: { id: SpecialCategory; labelPt: string; labelEn: string; pts: number }[] = [
+  { id: 'champion', labelPt: 'Campeão', labelEn: 'Champion', pts: 25 },
+  { id: 'vice_champion', labelPt: 'Vice-campeão', labelEn: 'Runner-up', pts: 10 },
+  { id: 'third_place', labelPt: '3º Lugar', labelEn: '3rd Place', pts: 10 },
+  { id: 'top_scorer', labelPt: 'Artilheiro', labelEn: 'Top Scorer', pts: 15 },
+  { id: 'best_player', labelPt: 'Melhor Jogador', labelEn: 'Best Player', pts: 15 },
+];
+
 export function Admin() {
   const { lang } = useLang();
-  const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores' | 'grupos'>('resultados');
+  const [activeTab, setActiveTab] = useState<'resultados' | 'partidas' | 'jogadores' | 'grupos' | 'especiais'>('resultados');
+  const [activeSpecialCategory, setActiveSpecialCategory] = useState<SpecialCategory>('champion');
+  const [specialPredictionsData, setSpecialPredictionsData] = useState<any[]>([]);
+  const [approvedSpecialKeys, setApprovedSpecialKeys] = useState<Record<SpecialCategory, Set<string>>>({
+    champion: new Set(),
+    vice_champion: new Set(),
+    third_place: new Set(),
+    top_scorer: new Set(),
+    best_player: new Set()
+  });
+  const [expandedSpecialGroups, setExpandedSpecialGroups] = useState<Record<string, boolean>>({});
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [savingSpecial, setSavingSpecial] = useState(false);
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -398,15 +420,30 @@ export function Admin() {
       const [
         { data: matchesData },
         { data: profilesData },
-        { data: officialGroupsData }
+        { data: officialGroupsData },
+        { data: officialSpecialData },
+        { data: specialPredsData }
       ] = await Promise.all([
         supabase.from('matches').select('*').order('match_date', { ascending: true }),
         supabase.from('profiles').select('*').order('name', { ascending: true }).limit(10000),
-        supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000')
+        supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('special_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000').maybeSingle(),
+        supabase.from('special_predictions').select('*').limit(10000)
       ]);
 
       if (matchesData) setMatches(matchesData);
       if (profilesData) setProfiles(profilesData);
+      if (specialPredsData) setSpecialPredictionsData(specialPredsData);
+
+      if (officialSpecialData) {
+        setApprovedSpecialKeys({
+          champion: parseApprovedSpecialKeys(officialSpecialData.champion),
+          vice_champion: parseApprovedSpecialKeys(officialSpecialData.vice_champion),
+          third_place: parseApprovedSpecialKeys(officialSpecialData.third_place),
+          top_scorer: parseApprovedSpecialKeys(officialSpecialData.top_scorer),
+          best_player: parseApprovedSpecialKeys(officialSpecialData.best_player),
+        });
+      }
 
       const standingsMap: Record<string, { first: string, second: string }> = {};
       const thirdPlacesMap: Record<string, string> = {};
@@ -1749,6 +1786,424 @@ export function Admin() {
     );
   };
 
+  const renderEspeciais = () => {
+    const activePlayers = profiles.filter(p => p.id !== '00000000-0000-0000-0000-000000000000');
+    
+    const playerSpecMap = new Map<string, any>();
+    specialPredictionsData.forEach(sp => {
+      if (sp.player_id !== '00000000-0000-0000-0000-000000000000') {
+        playerSpecMap.set(sp.player_id, sp);
+      }
+    });
+
+    const currentCatMeta = SPECIAL_CATEGORIES.find(c => c.id === activeSpecialCategory)!;
+
+    interface GroupedPrediction {
+      key: string;
+      rawSample: string;
+      isBlank: boolean;
+      players: { id: string; name: string; email: string; raw: string }[];
+    }
+
+    const groupMap = new Map<string, GroupedPrediction>();
+
+    activePlayers.forEach(player => {
+      const specRow = playerSpecMap.get(player.id);
+      const rawVal = specRow ? (specRow[activeSpecialCategory] || '').trim() : '';
+      const normKey = normalizeSpecialPrediction(rawVal);
+      const isBlank = normKey === '';
+
+      if (!groupMap.has(normKey)) {
+        groupMap.set(normKey, {
+          key: normKey,
+          rawSample: isBlank ? t(lang, 'admin.specials.noPrediction') : rawVal,
+          isBlank,
+          players: []
+        });
+      }
+
+      const grp = groupMap.get(normKey)!;
+      if (!isBlank && grp.rawSample.length < rawVal.length) {
+        grp.rawSample = rawVal;
+      }
+      grp.players.push({
+        id: player.id,
+        name: player.name || player.email || 'Usuário',
+        email: player.email || '',
+        raw: rawVal
+      });
+    });
+
+    const sortedGroups = Array.from(groupMap.values()).sort((a, b) => {
+      if (a.isBlank) return 1;
+      if (b.isBlank) return -1;
+      return b.players.length - a.players.length;
+    });
+
+    const categoryApprovedSet = approvedSpecialKeys[activeSpecialCategory] || new Set();
+
+    const toggleGroupApproved = (key: string) => {
+      if (!key) return; // Cannot approve blank predictions
+      setApprovedSpecialKeys(prev => {
+        const currentSet = new Set(prev[activeSpecialCategory]);
+        if (currentSet.has(key)) {
+          currentSet.delete(key);
+        } else {
+          currentSet.add(key);
+        }
+        return { ...prev, [activeSpecialCategory]: currentSet };
+      });
+    };
+
+    const markAllSelectedCorrect = () => {
+      setApprovedSpecialKeys(prev => {
+        const currentSet = new Set(prev[activeSpecialCategory]);
+        sortedGroups.forEach(g => {
+          if (!g.isBlank) {
+            currentSet.add(g.key);
+          }
+        });
+        return { ...prev, [activeSpecialCategory]: currentSet };
+      });
+    };
+
+    const clearCategorySelections = () => {
+      setApprovedSpecialKeys(prev => ({
+        ...prev,
+        [activeSpecialCategory]: new Set()
+      }));
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="border-b border-slate-800 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-emerald-400">
+              {t(lang, 'admin.specials.title')}
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {t(lang, 'admin.specials.subtitle')}
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowSpecialModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/40 transition-all self-start md:self-auto"
+          >
+            <Trophy className="w-4 h-4" />
+            <span>{t(lang, 'admin.specials.saveAndRecalculate')}</span>
+          </button>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          {SPECIAL_CATEGORIES.map(cat => {
+            const isSelected = activeSpecialCategory === cat.id;
+            const countApproved = (approvedSpecialKeys[cat.id] || new Set()).size;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveSpecialCategory(cat.id)}
+                className={`p-3 rounded-xl border flex flex-col items-start justify-between transition-all ${
+                  isSelected
+                    ? 'bg-emerald-950/40 border-emerald-500/80 text-emerald-300 ring-1 ring-emerald-500/50'
+                    : 'bg-slate-800/40 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {lang === 'pt' ? cat.labelPt : cat.labelEn}
+                  </span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    +{cat.pts} pts
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {countApproved} {t(lang, 'admin.specials.groupsApproved')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Batch Controls for Current Category */}
+        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-slate-300 font-medium flex items-center gap-2">
+            <span className="text-emerald-400 font-bold">
+              {lang === 'pt' ? currentCatMeta.labelPt : currentCatMeta.labelEn}
+            </span>
+            <span className="text-slate-500">•</span>
+            <span>{categoryApprovedSet.size} {t(lang, 'admin.specials.groupsApproved')}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={markAllSelectedCorrect}
+              className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            >
+              {t(lang, 'admin.specials.markSelectedCorrect')}
+            </button>
+            <button
+              onClick={clearCategorySelections}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            >
+              {t(lang, 'admin.specials.clearSelections')}
+            </button>
+          </div>
+        </div>
+
+        {/* Groups List */}
+        <div className="space-y-3">
+          {sortedGroups.map(group => {
+            const isApproved = categoryApprovedSet.has(group.key);
+            const isExpanded = !!expandedSpecialGroups[`${activeSpecialCategory}_${group.key}`];
+
+            const toggleExpandGroup = () => {
+              setExpandedSpecialGroups(prev => ({
+                ...prev,
+                [`${activeSpecialCategory}_${group.key}`]: !prev[`${activeSpecialCategory}_${group.key}`]
+              }));
+            };
+
+            return (
+              <div
+                key={group.key || '__blank__'}
+                className={`rounded-xl border transition-all ${
+                  group.isBlank
+                    ? 'bg-slate-900/40 border-slate-800 text-slate-500'
+                    : isApproved
+                    ? 'bg-emerald-950/30 border-emerald-600/60 shadow-md shadow-emerald-950/20'
+                    : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                }`}
+              >
+                <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      disabled={group.isBlank}
+                      checked={isApproved}
+                      onChange={() => toggleGroupApproved(group.key)}
+                      className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                    />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`font-bold text-base ${group.isBlank ? 'italic text-slate-500' : isApproved ? 'text-emerald-300' : 'text-white'}`}>
+                          {group.rawSample}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">
+                          {group.players.length} {t(lang, 'admin.specials.playersCount')}
+                        </span>
+                        {isApproved && (
+                          <span className="text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            {t(lang, 'predictions.correct')} (+{currentCatMeta.pts} pts)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {!group.isBlank && (
+                      <button
+                        onClick={() => toggleGroupApproved(group.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          isApproved
+                            ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                      >
+                        {isApproved ? t(lang, 'admin.specials.markIncorrect') : t(lang, 'admin.specials.markCorrect')}
+                      </button>
+                    )}
+                    <button
+                      onClick={toggleExpandGroup}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expandable Player List */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-1 border-t border-slate-700/40 bg-slate-900/40 rounded-b-xl">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                      {group.players.map(p => (
+                        <div key={p.id} className="p-2 rounded bg-slate-800/60 border border-slate-700/50 text-xs">
+                          <div className="font-semibold text-slate-200">{p.name}</div>
+                          <div className="text-[11px] text-slate-400 truncate">{p.email}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSpecialConfirmationModal = () => {
+    if (!showSpecialModal) return null;
+
+    const activePlayers = profiles.filter(p => p.id !== '00000000-0000-0000-0000-000000000000');
+    const playerSpecMap = new Map<string, any>();
+    specialPredictionsData.forEach(sp => {
+      if (sp.player_id !== '00000000-0000-0000-0000-000000000000') {
+        playerSpecMap.set(sp.player_id, sp);
+      }
+    });
+
+    const summaries = SPECIAL_CATEGORIES.map(cat => {
+      const approvedSet = approvedSpecialKeys[cat.id] || new Set();
+      let playersReceivingPoints = 0;
+      let playersZeroPoints = 0;
+
+      activePlayers.forEach(p => {
+        const specRow = playerSpecMap.get(p.id);
+        const rawVal = specRow ? specRow[cat.id] : '';
+        const normKey = normalizeSpecialPrediction(rawVal);
+        if (normKey && approvedSet.has(normKey)) {
+          playersReceivingPoints++;
+        } else {
+          playersZeroPoints++;
+        }
+      });
+
+      return {
+        cat,
+        approvedGroupsCount: approvedSet.size,
+        playersReceivingPoints,
+        playersZeroPoints
+      };
+    });
+
+    const handleConfirmSaveSpecial = async () => {
+      setSavingSpecial(true);
+      try {
+        const payload: Database['public']['Tables']['special_predictions']['Insert'] = {
+          player_id: '00000000-0000-0000-0000-000000000000',
+          champion: '',
+          vice_champion: '',
+          third_place: '',
+          top_scorer: '',
+          best_player: ''
+        };
+
+        SPECIAL_CATEGORIES.forEach(cat => {
+          const approvedSet = approvedSpecialKeys[cat.id] || new Set();
+          const keysArr = Array.from(approvedSet).filter(k => k.trim().length > 0);
+
+          keysArr.forEach(k => {
+            if (k.includes('|')) {
+              throw new Error(`Key contains illegal delimiter: ${k}`);
+            }
+          });
+
+          payload[cat.id] = keysArr.join(' | ');
+        });
+
+        const { error: upsertError } = await supabase
+          .from('special_predictions')
+          .upsert(payload, { onConflict: 'player_id' });
+
+        if (upsertError) throw upsertError;
+
+        await recalculateScores();
+
+        showToast(
+          lang === 'pt' ? 'Palpites Especiais salvos e pontos recalculados!' : 'Special predictions saved and points recalculated!',
+          'success'
+        );
+        setShowSpecialModal(false);
+      } catch (err) {
+        console.error('Error saving special predictions:', err);
+        showToast(
+          lang === 'pt' ? 'Erro ao salvar palpites especiais.' : 'Error saving special predictions.',
+          'error'
+        );
+      } finally {
+        setSavingSpecial(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl">
+          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-6 h-6 text-emerald-400" />
+              <h3 className="text-lg font-bold text-white">
+                {t(lang, 'admin.specials.modalTitle')}
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowSpecialModal(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-300">
+            {t(lang, 'admin.specials.modalSubtitle')}
+          </p>
+
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+            {summaries.map(s => (
+              <div key={s.cat.id} className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="font-bold text-emerald-400 text-sm">
+                    {lang === 'pt' ? s.cat.labelPt : s.cat.labelEn} (+{s.cat.pts} pts)
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {s.approvedGroupsCount} {t(lang, 'admin.specials.groupsApproved')}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    {s.playersReceivingPoints} {t(lang, 'admin.specials.playersReceivingPoints')}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md bg-slate-700 text-slate-400 font-medium">
+                    {s.playersZeroPoints} {t(lang, 'admin.specials.playersZeroPoints')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <button
+              onClick={() => setShowSpecialModal(false)}
+              disabled={savingSpecial}
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-50"
+            >
+              {t(lang, 'admin.specials.cancel')}
+            </button>
+            <button
+              onClick={handleConfirmSaveSpecial}
+              disabled={savingSpecial}
+              className="px-5 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {savingSpecial ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{lang === 'pt' ? 'Salvando...' : 'Saving...'}</span>
+                </>
+              ) : (
+                <span>{t(lang, 'admin.specials.confirmSave')}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 pb-20 max-w-4xl mx-auto w-full">
       {toast && (
@@ -1764,13 +2219,14 @@ export function Admin() {
             { id: 'resultados', label: t(lang, 'admin.results'), icon: Trophy },
             { id: 'partidas', label: t(lang, 'admin.matches'), icon: Calendar },
             { id: 'jogadores', label: t(lang, 'admin.players'), icon: Users },
-            { id: 'grupos', label: lang === 'pt' ? 'Grupos' : 'Groups', icon: Trophy }
+            { id: 'grupos', label: lang === 'pt' ? 'Grupos' : 'Groups', icon: Trophy },
+            { id: 'especiais', label: lang === 'pt' ? 'Especiais' : 'Specials', icon: Trophy }
           ].map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'resultados' | 'partidas' | 'jogadores' | 'grupos')}
+                onClick={() => setActiveTab(tab.id as 'resultados' | 'partidas' | 'jogadores' | 'grupos' | 'especiais')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-colors ${
                   activeTab === tab.id
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -1790,6 +2246,7 @@ export function Admin() {
         {activeTab === 'partidas' && renderPartidas()}
         {activeTab === 'jogadores' && renderJogadores()}
         {activeTab === 'grupos' && renderGrupos()}
+        {activeTab === 'especiais' && renderEspeciais()}
       </div>
 
       {/* Export Predictions Section */}
@@ -2044,6 +2501,7 @@ export function Admin() {
           </div>
         </div>
       )}
+      {renderSpecialConfirmationModal()}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import type { Database } from '../lib/supabase';
 import { formatMatchTime } from '../utils/dateUtils';
 import { useLang } from '../contexts/LanguageContext';
 import { t } from '../i18n';
-import { calculatePoints, normalizeSpecialPrediction } from '../engine/scoring';
+import { calculatePoints, isCategoryPredictionCorrect } from '../engine/scoring';
 import { FlagIcon } from '../components/FlagIcon';
 import {
   GROUP_STAGE_LOCK,
@@ -371,8 +371,8 @@ export function Leaderboard() {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points;
       
       // Tiebreaker 1: Champion correct
-      const isChampionshipCorrectA = actualChampion && normalizeSpecialPrediction(championPredictions[a.player_id]) === normalizeSpecialPrediction(actualChampion);
-      const isChampionshipCorrectB = actualChampion && normalizeSpecialPrediction(championPredictions[b.player_id]) === normalizeSpecialPrediction(actualChampion);
+      const isChampionshipCorrectA = Boolean(actualChampion && isCategoryPredictionCorrect(championPredictions[a.player_id], actualChampion));
+      const isChampionshipCorrectB = Boolean(actualChampion && isCategoryPredictionCorrect(championPredictions[b.player_id], actualChampion));
       if (isChampionshipCorrectA !== isChampionshipCorrectB) {
         return isChampionshipCorrectA ? -1 : 1;
       }
@@ -392,8 +392,8 @@ export function Leaderboard() {
     let currentRank = 1;
     for (let index = 0; index < sorted.length; index++) {
       const score = sorted[index];
-      const isChampCorrect = actualChampion && normalizeSpecialPrediction(championPredictions[score.player_id]) === normalizeSpecialPrediction(actualChampion);
-      const isPrevChampCorrect = index > 0 && actualChampion && normalizeSpecialPrediction(championPredictions[sorted[index - 1].player_id]) === normalizeSpecialPrediction(actualChampion);
+      const isChampCorrect = Boolean(actualChampion && isCategoryPredictionCorrect(championPredictions[score.player_id], actualChampion));
+      const isPrevChampCorrect = Boolean(index > 0 && actualChampion && isCategoryPredictionCorrect(championPredictions[sorted[index - 1].player_id], actualChampion));
 
       const isTieWithPrev = index > 0 &&
         score.total_points === sorted[index - 1].total_points &&
@@ -405,7 +405,7 @@ export function Leaderboard() {
         currentRank = index + 1;
       }
       
-      const isNextChampCorrect = index < sorted.length - 1 && actualChampion && normalizeSpecialPrediction(championPredictions[sorted[index + 1].player_id]) === normalizeSpecialPrediction(actualChampion);
+      const isNextChampCorrect = Boolean(index < sorted.length - 1 && actualChampion && isCategoryPredictionCorrect(championPredictions[sorted[index + 1].player_id], actualChampion));
       const isTieWithNext = index < sorted.length - 1 &&
         score.total_points === sorted[index + 1].total_points &&
         isChampCorrect === isNextChampCorrect &&

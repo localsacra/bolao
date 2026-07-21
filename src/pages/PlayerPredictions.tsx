@@ -10,7 +10,7 @@ import {
   calculatePoints, 
   calculateGroupPositionPoints, 
   calculateThirdPlaceQualifierPoints,
-  normalizeSpecialPrediction,
+  isCategoryPredictionCorrect,
   getPredictedAdvancer,
   getActualAdvancer,
   POINTS_CORRECT_ADVANCER,
@@ -903,7 +903,7 @@ export function PlayerPredictions() {
             }
           ].map((item, idx) => {
             const hasActualValue = item.actualValue !== undefined && item.actualValue !== null && item.actualValue !== '';
-            const isCorrect = hasActualValue && item.value && normalizeSpecialPrediction(item.value) === normalizeSpecialPrediction(item.actualValue);
+            const isCorrect = hasActualValue && isCategoryPredictionCorrect(item.value, item.actualValue);
             const pointsAwarded = isCorrect ? item.pointsValue : 0;
 
             return (

@@ -151,6 +151,25 @@ export function normalizeSpecialPrediction(str: string | undefined | null): stri
     .replace(/[^a-z0-9]/g, '');      // Remove all non-alphanumeric characters
 }
 
+export function parseApprovedSpecialKeys(actualField: string | undefined | null): Set<string> {
+  if (!actualField || !actualField.trim()) return new Set();
+  const keys = actualField
+    .split('|')
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
+  return new Set(keys);
+}
+
+export function isCategoryPredictionCorrect(
+  userPrediction: string | null | undefined,
+  officialString: string | null | undefined
+): boolean {
+  const userKey = normalizeSpecialPrediction(userPrediction);
+  if (!userKey) return false;
+  const approvedSet = parseApprovedSpecialKeys(officialString);
+  return approvedSet.has(userKey);
+}
+
 export function calculateSpecialPoints(
   prediction: {
     champion: string;
@@ -168,18 +187,13 @@ export function calculateSpecialPoints(
   }
 ): number {
   let points = 0;
-  if (normalizeSpecialPrediction(prediction.champion) === normalizeSpecialPrediction(actual.champion)) points += 25;
-  if (prediction.vice_champion && 
-      normalizeSpecialPrediction(prediction.vice_champion) === normalizeSpecialPrediction(actual.vice_champion)) 
-    points += 10;
-  if (prediction.third_place && 
-      normalizeSpecialPrediction(prediction.third_place) === normalizeSpecialPrediction(actual.third_place)) 
-    points += 10;
-  if (normalizeSpecialPrediction(prediction.top_scorer) === normalizeSpecialPrediction(actual.top_scorer)) 
-    points += 15;
-  if (normalizeSpecialPrediction(prediction.best_player) === normalizeSpecialPrediction(actual.best_player)) 
-    points += 15;
+  if (isCategoryPredictionCorrect(prediction.champion, actual.champion)) points += 25;
+  if (prediction.vice_champion && isCategoryPredictionCorrect(prediction.vice_champion, actual.vice_champion)) points += 10;
+  if (prediction.third_place && isCategoryPredictionCorrect(prediction.third_place, actual.third_place)) points += 10;
+  if (isCategoryPredictionCorrect(prediction.top_scorer, actual.top_scorer)) points += 15;
+  if (isCategoryPredictionCorrect(prediction.best_player, actual.best_player)) points += 15;
   return points;
 }
+
 
 

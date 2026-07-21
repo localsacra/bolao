@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints } from './scoring';
+import { calculatePoints, calculateGroupPositionPoints, calculateThirdPlaceQualifierPoints, calculateSpecialPoints } from './scoring';
 
 export const recalculateScores = async (matchId?: number) => {
   if (matchId !== undefined) {
@@ -87,14 +87,18 @@ export const recalculateScores = async (matchId?: number) => {
       allPlayerScores,
       profiles,
       officialGroupPredsRes,
-      allGroupPredictionsRes
+      allGroupPredictionsRes,
+      officialSpecialPredRes,
+      allSpecialPredictionsRes
     ] = await Promise.all([
       supabase.from('matches').select('*').not('actual_score_a', 'is', null),
       fetchAllPredictions(),
       fetchAllPlayerScores(),
       fetchAllProfiles(),
       supabase.from('group_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000'),
-      supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
+      supabase.from('group_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000'),
+      supabase.from('special_predictions').select('*').eq('player_id', '00000000-0000-0000-0000-000000000000').maybeSingle(),
+      supabase.from('special_predictions').select('*').neq('player_id', '00000000-0000-0000-0000-000000000000')
     ]);
 
     const allMatches = allMatchesRes.data;
@@ -148,6 +152,22 @@ export const recalculateScores = async (matchId?: number) => {
           groupPredsMap.set(gp.player_id, new Map());
         }
         groupPredsMap.get(gp.player_id)!.set(gp.group_name, gp);
+      });
+    }
+
+    // Map special predictions
+    const officialSpecial = officialSpecialPredRes.data || {
+      champion: '',
+      vice_champion: '',
+      third_place: '',
+      top_scorer: '',
+      best_player: ''
+    };
+
+    const specialPredsMap = new Map<string, any>();
+    if (allSpecialPredictionsRes.data) {
+      allSpecialPredictionsRes.data.forEach(sp => {
+        specialPredsMap.set(sp.player_id, sp);
       });
     }
 
@@ -219,15 +239,25 @@ export const recalculateScores = async (matchId?: number) => {
 
       const totalGroupPoints = groupPoints + thirdPlacePoints + crossSlotPoints;
 
-      const existing = existingScoresMap.get(pId) || { special_points: 0, id: undefined };
+      // Special predictions points calculation
+      const playerSpecialPred = specialPredsMap.get(pId) || {
+        champion: '',
+        vice_champion: '',
+        third_place: '',
+        top_scorer: '',
+        best_player: ''
+      };
+      const specialPoints = calculateSpecialPoints(playerSpecialPred, officialSpecial);
+
+      const existing = existingScoresMap.get(pId) || { id: undefined };
       
       return {
         ...(existing.id ? { id: existing.id } : {}),
         player_id: pId,
         match_points: matchPoints,
         group_points: totalGroupPoints,
-        special_points: existing.special_points,
-        total_points: matchPoints + totalGroupPoints + existing.special_points,
+        special_points: specialPoints,
+        total_points: matchPoints + totalGroupPoints + specialPoints,
         updated_at: new Date().toISOString()
       };
     });
